@@ -3,57 +3,82 @@ import pandas as pd
 import math
 from io import BytesIO
 
-# --- FUNGSI HELPER UNTUK FORMAT RUPIAH ---
+# --- FUNGSI HELPER ---
 def format_rp(angka):
-    # Mengubah format angka menjadi gaya Indonesia (titik pemisah ribuan)
     return f"Rp {angka:,.0f}".replace(",", ".")
+
+def get_shift_distribution(shift_mpp):
+    if shift_mpp == 0: return "0 Pax"
+    base = shift_mpp // 4
+    rem = shift_mpp % 4
+    if rem == 0:
+        return f"{base} Pax"
+    else:
+        return f"{base} - {base+1} Pax"
 
 # --- 1. SaaS UI STYLING (PREMIUM & RESPONSIVE) ---
 st.set_page_config(page_title="CP CorePlanner", page_icon="🅿️", layout="wide")
 
 st.markdown("""
     <style>
-    .main { background-color: #f4f6f9; }
+    /* Global Background */
+    .main { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    /* Sidebar Styling */
     section[data-testid="stSidebar"] { background-color: #004a99 !important; }
     section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p,
     section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 { color: #ffffff !important; }
-    section[data-testid="stSidebar"] input { color: #1e293b !important; background-color: #ffffff !important; border-radius: 6px !important; }
+    section[data-testid="stSidebar"] input { color: #1e293b !important; background-color: #ffffff !important; border-radius: 6px !important; border: 1px solid #cbd5e1 !important; }
     section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !important; }
     
-    .metric-card { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 10px; transition: all 0.2s ease-in-out; }
-    .metric-card-a { border-left: 6px solid #004a99; } /* Metrik Skenario A */
-    .metric-card-b { border-left: 6px solid #d97706; } /* Metrik Skenario B */
-    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-    .metric-label { font-size: 0.85rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .metric-value { font-size: 1.4rem; color: #1e293b; font-weight: 900; margin-top: 5px;}
+    /* Scenario Container */
+    .scenario-container { background-color: #ffffff; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .container-a { border-top: 6px solid #004a99; box-shadow: 0 8px 24px rgba(0,74,153,0.12); }
+    .container-b { border-top: 6px solid #d97706; box-shadow: 0 8px 24px rgba(217,119,6,0.12); }
     
-    /* SCENARIO A STYLING (BIRU) */
-    .scenario-box-a { 
-        background-color: #ffffff; padding: 25px; border-radius: 15px; 
-        border-top: 6px solid #004a99; 
-        box-shadow: 0 8px 25px rgba(0,74,153,0.15); /* Bayangan Biru */
-        margin-bottom: 20px; height: 100%; 
-    }
-    
-    /* SCENARIO B STYLING (ORANYE) */
-    .scenario-box-b { 
-        background-color: #ffffff; padding: 25px; border-radius: 15px; 
-        border-top: 6px solid #d97706; 
-        box-shadow: 0 8px 25px rgba(217,119,6,0.15); /* Bayangan Oranye */
-        margin-bottom: 20px; height: 100%; 
-    }
+    /* Scenario Title */
+    .scenario-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+    .title-a { color: #004a99; }
+    .title-b { color: #d97706; }
 
-    /* Helper Text untuk Format Uang */
-    .money-helper { font-size: 0.85rem; font-weight: 700; color: #10b981; margin-top: -10px; margin-bottom: 15px; }
+    /* Metric Cards */
+    .metric-row { display: flex; gap: 15px; margin-top: 20px; margin-bottom: 15px; }
+    .metric-card { background-color: #f8fafc; padding: 15px; border-radius: 12px; flex: 1; border: 1px solid #e2e8f0; transition: transform 0.2s; }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .metric-card-a { border-left: 5px solid #004a99; } 
+    .metric-card-b { border-left: 5px solid #d97706; } 
+    .metric-label { font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 1.3rem; color: #1e293b; font-weight: 900; margin-top: 5px;}
+    
+    /* Breakdown Bar (FITUR BARU) */
+    .breakdown-bar { display: flex; background-color: #f1f5f9; padding: 12px 10px; border-radius: 10px; margin-bottom: 20px; justify-content: space-between; }
+    .bd-item { display: flex; flex-direction: column; text-align: center; flex: 1; }
+    .bd-border { border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; }
+    .bd-label { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+    .bd-val { font-size: 1.05rem; color: #0f172a; font-weight: 800; margin-top: 2px;}
+
+    /* Highlight Total Cost */
+    .total-cost-box { padding: 20px; border-radius: 12px; text-align: center; margin-top: 10px; }
+    .total-cost-a { background-color: #f0f7ff; border: 2px dashed #93c5fd; }
+    .total-cost-b { background-color: #fffbeb; border: 2px dashed #fcd34d; }
+    .total-label { font-size: 0.9rem; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; }
+    .total-value-a { font-size: 1.8rem; font-weight: 900; color: #004a99; margin: 0; }
+    .total-value-b { font-size: 1.8rem; font-weight: 900; color: #d97706; margin: 0; }
+
+    /* Helper Text */
+    .money-helper { font-size: 0.85rem; font-weight: 700; margin-top: -10px; margin-bottom: 15px; padding-left: 5px;}
+    .helper-a { color: #004a99; }
+    .helper-b { color: #d97706; }
     .money-helper-sidebar { font-size: 0.85rem; font-weight: 700; color: #fbbf24; margin-top: -10px; margin-bottom: 15px; }
 
-    div.stButton > button, div.stDownloadButton > button { background-color: #004a99 !important; color: white !important; border-radius: 8px !important; font-weight: 700 !important; width: 100%; padding: 10px 0 !important; border: none !important; transition: all 0.3s ease !important; }
-    div.stButton > button:hover, div.stDownloadButton > button:hover { background-color: #003366 !important; box-shadow: 0 4px 12px rgba(0,74,153,0.3) !important; }
+    /* Button */
+    div.stButton > button, div.stDownloadButton > button { background-color: #004a99 !important; color: white !important; border-radius: 8px !important; font-weight: 700 !important; width: 100%; padding: 12px 0 !important; border: none !important; transition: all 0.3s ease !important; text-transform: uppercase; letter-spacing: 1px;}
+    div.stButton > button:hover, div.stDownloadButton > button:hover { background-color: #003366 !important; box-shadow: 0 4px 15px rgba(0,74,153,0.3) !important; transform: translateY(-2px); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CORE COMPLIANCE ENGINE (STRICT FINANCIAL LOGIC) ---
+# --- 2. CORE COMPLIANCE ENGINE ---
 class ComplianceEngine:
     def __init__(self, umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate):
         self.umk = umk
@@ -94,7 +119,10 @@ class ComplianceEngine:
         elif adm > 0:
             adm_allowance = 0.30 
             
-        cost_ops = self.get_cost(cashier + ctrl + att, 0)
+        shift_mpp = cashier + ctrl + att
+        office_mpp = spv + adm + cpm
+            
+        cost_ops = self.get_cost(shift_mpp, 0)
         cost_adm = self.get_cost(adm, adm_allowance)
         cost_spv = self.get_cost(spv, spv_allowance)
         cost_cpm = self.get_cost(cpm, cpm_allowance)
@@ -102,10 +130,16 @@ class ComplianceEngine:
         actual_manpower_cost = cost_ops + cost_adm + cost_spv + cost_cpm
         final_cost = actual_manpower_cost * (1 + mgt_fee_rate)
         
-        total_mpp = cashier + ctrl + att + spv + adm + cpm
+        total_mpp = shift_mpp + office_mpp
         ratio = (final_cost / rev) * 100 if rev > 0 else 0
         
-        return {"mpp": total_mpp, "ratio": ratio, "cost": final_cost}
+        return {
+            "mpp": total_mpp, 
+            "shift_mpp": shift_mpp, 
+            "office_mpp": office_mpp, 
+            "ratio": ratio, 
+            "cost": final_cost
+        }
 
 # --- EXCEL DOWNLOAD FUNCTION ---
 def generate_excel(df_comparison, df_shift):
@@ -117,7 +151,6 @@ def generate_excel(df_comparison, df_shift):
         workbook = writer.book
         worksheet1 = writer.sheets['Scenario Comparison']
         worksheet2 = writer.sheets['Shift Schedule']
-        
         money_format = workbook.add_format({'num_format': '#,##0'})
         
         for i, col in enumerate(df_comparison.columns):
@@ -136,6 +169,7 @@ def generate_excel(df_comparison, df_shift):
 # --- 3. UI DASHBOARD ---
 st.title("🛡️ CP CorePlanner v2.5")
 st.markdown("Strict Compliance: UU Ketenagakerjaan No.6/2023 (40 Hrs/Wk & Rest Days) & Actual P&L Logic")
+st.divider()
 
 with st.sidebar:
     st.header("🏢 Project Identity") 
@@ -151,7 +185,6 @@ with st.sidebar:
     
     st.header("📍 Base Configuration")
     umk = st.number_input("Regional Minimum Wage (UMK)", value=5729876, step=100000)
-    # Menampilkan format rupiah di bawah input
     st.markdown(f"<div class='money-helper-sidebar'>✔️ {format_rp(umk)}</div>", unsafe_allow_html=True)
     
     hours = st.slider("Operating Hours / Day", 16, 24, 24)
@@ -167,10 +200,9 @@ with st.sidebar:
     st.divider()
     
     st.header("💰 Actual Cost Variables")
-    with st.expander("Adjust Variables", expanded=False):
+    with st.expander("Adjust Financial Variables", expanded=False):
         fixed_overhead = st.number_input("Amortized Fixed Cost / Pax", value=500000, step=50000)
         st.markdown(f"<div class='money-helper-sidebar'>✔️ {format_rp(fixed_overhead)}</div>", unsafe_allow_html=True)
-        
         st.caption("BPJS, THR & UUCK (Strictly from Basic UMK):")
         bpjs_rate = st.number_input("BPJS Company Portion (%)", value=10.24, step=0.1) / 100
         thr_rate = st.number_input("THR Provision (%)", value=8.33, step=0.1) / 100
@@ -186,69 +218,118 @@ with st.sidebar:
         st.caption("*Mgt Fee is calculated from Total Actual Cost")
 
 eng = ComplianceEngine(umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate)
-cost_label = "Total Cost (incl. Mgt Fee)" if include_mgt_fee else "Actual Manpower Cost"
+cost_label = "Total Commercial Cost (incl. Mgt Fee)" if include_mgt_fee else "Total Actual Manpower Cost"
 
 # WHAT-IF COMPARISON
-st.subheader(f"💡 What-If Scenario: {standard_project_id}")
+st.subheader(f"💡 What-If Scenario Analysis: {standard_project_id}")
 col_a, col_b = st.columns(2)
 
 with col_a:
-    # KOTAK SKENARIO A (WARNA BIRU)
-    st.markdown("<div class='scenario-box-a'>", unsafe_allow_html=True)
-    st.subheader("🅰️ Scenario A")
+    st.markdown("<div class='scenario-container container-a'>", unsafe_allow_html=True)
+    st.markdown("<div class='scenario-title title-a'>🅰️ Scenario A</div>", unsafe_allow_html=True)
+    
     sys_a = st.selectbox("System A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
-    rev_a = st.number_input("Est. Revenue A (Input Value)", value=150000000, step=10000000, key="rev_a")
-    st.markdown(f"<div class='money-helper'>🎯 {format_rp(rev_a)}</div>", unsafe_allow_html=True)
+    rev_a = st.number_input("Est. Revenue A", value=150000000, step=10000000, key="rev_a")
+    st.markdown(f"<div class='money-helper helper-a'>🎯 {format_rp(rev_a)}</div>", unsafe_allow_html=True)
     
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
     st.markdown(f"""
-        <div style='display:flex; gap:15px; margin-bottom:20px; margin-top:5px;'>
-            <div class='metric-card metric-card-a' style='flex:1'>
+        <div class='metric-row'>
+            <div class='metric-card metric-card-a'>
                 <div class='metric-label'>Total MPP</div>
                 <div class='metric-value'>{res_a['mpp']} Pax</div>
             </div>
-            <div class='metric-card metric-card-a' style='flex:1'>
+            <div class='metric-card metric-card-a'>
                 <div class='metric-label'>Cost Ratio</div>
                 <div class='metric-value'>{res_a['ratio']:.2f}%</div>
             </div>
         </div>
+        
+        <div class='breakdown-bar'>
+            <div class='bd-item'>
+                <span class='bd-label'>Ops Shift</span>
+                <span class='bd-val'>{res_a['shift_mpp']} Pax</span>
+            </div>
+            <div class='bd-item bd-border'>
+                <span class='bd-label'>Per Regu (Group)</span>
+                <span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span>
+            </div>
+            <div class='bd-item'>
+                <span class='bd-label'>Back Office</span>
+                <span class='bd-val'>{res_a['office_mpp']} Pax</span>
+            </div>
+        </div>
+        
+        <div class='total-cost-box total-cost-a'>
+            <div class='total-label'>{cost_label}</div>
+            <p class='total-value-a'>{format_rp(res_a['cost'])}</p>
+        </div>
+    </div>
     """, unsafe_allow_html=True)
-    st.write(f"**{cost_label}:**")
-    st.markdown(f"<h3 style='color:#004a99; margin-top: -10px;'>{format_rp(res_a['cost'])}</h3>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 with col_b:
-    # KOTAK SKENARIO B (WARNA ORANYE)
-    st.markdown("<div class='scenario-box-b'>", unsafe_allow_html=True)
-    st.subheader("🅱️ Scenario B")
+    st.markdown("<div class='scenario-container container-b'>", unsafe_allow_html=True)
+    st.markdown("<div class='scenario-title title-b'>🅱️ Scenario B</div>", unsafe_allow_html=True)
+    
     sys_b = st.selectbox("System B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
-    rev_b = st.number_input("Est. Revenue B (Input Value)", value=250000000, step=10000000, key="rev_b")
-    st.markdown(f"<div class='money-helper' style='color:#d97706;'>🎯 {format_rp(rev_b)}</div>", unsafe_allow_html=True)
+    rev_b = st.number_input("Est. Revenue B", value=250000000, step=10000000, key="rev_b")
+    st.markdown(f"<div class='money-helper helper-b'>🎯 {format_rp(rev_b)}</div>", unsafe_allow_html=True)
     
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
     st.markdown(f"""
-        <div style='display:flex; gap:15px; margin-bottom:20px; margin-top:5px;'>
-            <div class='metric-card metric-card-b' style='flex:1'>
+        <div class='metric-row'>
+            <div class='metric-card metric-card-b'>
                 <div class='metric-label'>Total MPP</div>
                 <div class='metric-value'>{res_b['mpp']} Pax</div>
             </div>
-            <div class='metric-card metric-card-b' style='flex:1'>
+            <div class='metric-card metric-card-b'>
                 <div class='metric-label'>Cost Ratio</div>
                 <div class='metric-value'>{res_b['ratio']:.2f}%</div>
             </div>
         </div>
+        
+        <div class='breakdown-bar'>
+            <div class='bd-item'>
+                <span class='bd-label'>Ops Shift</span>
+                <span class='bd-val'>{res_b['shift_mpp']} Pax</span>
+            </div>
+            <div class='bd-item bd-border'>
+                <span class='bd-label'>Per Regu (Group)</span>
+                <span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span>
+            </div>
+            <div class='bd-item'>
+                <span class='bd-label'>Back Office</span>
+                <span class='bd-val'>{res_b['office_mpp']} Pax</span>
+            </div>
+        </div>
+        
+        <div class='total-cost-box total-cost-b'>
+            <div class='total-label'>{cost_label}</div>
+            <p class='total-value-b'>{format_rp(res_b['cost'])}</p>
+        </div>
+    </div>
     """, unsafe_allow_html=True)
-    st.write(f"**{cost_label}:**")
-    st.markdown(f"<h3 style='color:#d97706; margin-top: -10px;'>{format_rp(res_b['cost'])}</h3>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- DATA EXCEL ---
+# Excel juga saya update agar menampilkan breakdown tersebut
 df_comparison = pd.DataFrame({
-    "Metric": ["Project ID", "Parking System", "Est. Revenue", "Total MPP (Pax)", "Cost/Rev Ratio (%)", f"{cost_label} (Rp)"],
-    "Scenario A": [standard_project_id, sys_a, rev_a, res_a['mpp'], round(res_a['ratio'], 2), res_a['cost']],
-    "Scenario B": [standard_project_id, sys_b, rev_b, res_b['mpp'], round(res_b['ratio'], 2), res_b['cost']]
+    "Metric": [
+        "Project ID", "Parking System", "Est. Revenue", 
+        "Total MPP (Pax)", "Ops Shift (Pax)", "Back Office (Pax)", "Est. Pax / Group",
+        "Cost/Rev Ratio (%)", f"{cost_label} (Rp)"
+    ],
+    "Scenario A": [
+        standard_project_id, sys_a, rev_a, 
+        res_a['mpp'], res_a['shift_mpp'], res_a['office_mpp'], get_shift_distribution(res_a['shift_mpp']),
+        round(res_a['ratio'], 2), res_a['cost']
+    ],
+    "Scenario B": [
+        standard_project_id, sys_b, rev_b, 
+        res_b['mpp'], res_b['shift_mpp'], res_b['office_mpp'], get_shift_distribution(res_b['shift_mpp']),
+        round(res_b['ratio'], 2), res_b['cost']
+    ]
 })
 
 shift_logic = pd.DataFrame({
@@ -266,7 +347,7 @@ excel_data = generate_excel(df_comparison, shift_logic)
 safe_filename = project_name.replace(" ", "_")
 safe_property = property_type.replace(" ", "_").replace("/", "_")
 st.download_button(
-    label="📥 Download Analysis Report (Excel)",
+    label="📥 DOWNLOAD REPORT (EXCEL)",
     data=excel_data,
     file_name=f"MPP_{safe_property}_{safe_filename}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
