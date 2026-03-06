@@ -42,13 +42,19 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !
 .metric-label { font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 .metric-value { font-size: 1.3rem; color: #1e293b; font-weight: 900; margin-top: 5px;}
 
-.breakdown-bar { display: flex; background-color: #f1f5f9; padding: 12px 10px; border-radius: 10px; margin-bottom: 20px; justify-content: space-between; }
+.breakdown-bar { display: flex; background-color: #f1f5f9; padding: 12px 10px; border-radius: 10px; margin-bottom: 15px; justify-content: space-between; }
 .bd-item { display: flex; flex-direction: column; text-align: center; flex: 1; }
 .bd-border { border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; }
 .bd-label { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
 .bd-val { font-size: 1rem; color: #0f172a; font-weight: 800; margin-top: 2px;}
 
-.total-cost-box { padding: 15px; border-radius: 10px; text-align: center; }
+/* Detail Komposisi Box */
+.comp-box { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 0.85rem; }
+.comp-title { font-weight: 800; color: #1e293b; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; text-transform: uppercase; font-size: 0.75rem;}
+.comp-row { display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569; }
+.comp-val { font-weight: 700; color: #0f172a; }
+
+.total-cost-box { padding: 15px; border-radius: 10px; text-align: center; margin-top: 5px;}
 .total-cost-a { background-color: #f0f7ff; border: 2px dashed #93c5fd; }
 .total-cost-b { background-color: #fffbeb; border: 2px dashed #fcd34d; }
 .total-label { font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; }
@@ -60,7 +66,6 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !
 .helper-b { color: #d97706; }
 .money-helper-sidebar { font-size: 0.85rem; font-weight: 700; color: #fbbf24; margin-top: -10px; margin-bottom: 15px; }
 
-/* Info Box */
 .info-box-a { background-color: #e0f2fe; padding: 15px; border-radius: 8px; border-left: 5px solid #004a99; margin-bottom: 10px; color: #0f172a;}
 .info-box-b { background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 5px solid #d97706; margin-bottom: 20px; color: #0f172a;}
 
@@ -124,10 +129,17 @@ class ComplianceEngine:
         total_mpp = shift_mpp + office_mpp
         ratio = (final_cost / rev) * 100 if rev > 0 else 0
         
+        # MENGEMBALIKAN RINCIAN KOMPOSISI
         return {
             "mpp": total_mpp, 
             "shift_mpp": shift_mpp, 
-            "office_mpp": office_mpp, 
+            "office_mpp": office_mpp,
+            "cashier": cashier,
+            "att": att,
+            "ctrl": ctrl,
+            "adm": adm,
+            "spv": spv,
+            "cpm": cpm,
             "ratio": ratio, 
             "cost": final_cost
         }
@@ -167,7 +179,6 @@ with st.sidebar:
     raw_project_name = st.text_input("Project Name", value="EXAMPLE PROJECT")
     project_name = raw_project_name.strip().upper() 
     
-    # PROPERTY TYPE: Alphabetical Order with "OTHER" at the end
     property_options = [
         "APARTMENT", "HOSPITAL", "HOTEL", "MALL", "MODERN MARKET", 
         "OFFICE BUILDING", "SHOPHOUSE", "TRADITIONAL MARKET", "TRANSIT HUB", "OTHER"
@@ -220,43 +231,44 @@ col_a, col_b = st.columns(2)
 
 with col_a:
     st.markdown("<div class='header-card-a'><h3 class='header-title'>🅰️ Scenario A</h3></div>", unsafe_allow_html=True)
-    
     sys_a = st.selectbox("System A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
     rev_a = st.number_input("Est. Revenue A", value=150000000, step=10000000, key="rev_a")
     st.markdown(f"<div class='money-helper helper-a'>🎯 {format_idr(rev_a)}</div>", unsafe_allow_html=True)
-    
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
-    html_a = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-a'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div><div class='metric-card metric-card-a'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_a['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_a['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-a'><div class='total-label'>{cost_label}</div><p class='total-value-a'>{format_idr(res_a['cost'])}</p></div></div>"
+    # HTML SATU BARIS ANTI BOCOR (DENGAN TAMBAHAN KOMPOSISI KARYAWAN)
+    html_a = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-a'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div><div class='metric-card metric-card-a'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_a['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_a['office_mpp']} Pax</span></div></div><div style='display:flex; gap:10px; margin-bottom:15px;'><div class='comp-box' style='flex:1;'><div class='comp-title'>Non-Staff (Shift)</div><div class='comp-row'><span>Attendant</span><span class='comp-val'>{res_a['att']} Pax</span></div><div class='comp-row'><span>Gate/Cashier</span><span class='comp-val'>{res_a['cashier']} Pax</span></div><div class='comp-row'><span>Control Room</span><span class='comp-val'>{res_a['ctrl']} Pax</span></div></div><div class='comp-box' style='flex:1;'><div class='comp-title'>Staff (Office)</div><div class='comp-row'><span>Admin</span><span class='comp-val'>{res_a['adm']} Pax</span></div><div class='comp-row'><span>Supervisor</span><span class='comp-val'>{res_a['spv']} Pax</span></div><div class='comp-row'><span>Manager (CPM)</span><span class='comp-val'>{res_a['cpm']} Pax</span></div></div></div><div class='total-cost-box total-cost-a'><div class='total-label'>{cost_label}</div><p class='total-value-a'>{format_idr(res_a['cost'])}</p></div></div>"
     st.markdown(html_a, unsafe_allow_html=True)
 
 with col_b:
     st.markdown("<div class='header-card-b'><h3 class='header-title'>🅱️ Scenario B</h3></div>", unsafe_allow_html=True)
-    
     sys_b = st.selectbox("System B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
     rev_b = st.number_input("Est. Revenue B", value=250000000, step=10000000, key="rev_b")
     st.markdown(f"<div class='money-helper helper-b'>🎯 {format_idr(rev_b)}</div>", unsafe_allow_html=True)
-    
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
-    html_b = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-b'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div><div class='metric-card metric-card-b'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_b['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_b['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-b'><div class='total-label'>{cost_label}</div><p class='total-value-b'>{format_idr(res_b['cost'])}</p></div></div>"
+    # HTML SATU BARIS ANTI BOCOR (DENGAN TAMBAHAN KOMPOSISI KARYAWAN)
+    html_b = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-b'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div><div class='metric-card metric-card-b'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_b['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_b['office_mpp']} Pax</span></div></div><div style='display:flex; gap:10px; margin-bottom:15px;'><div class='comp-box' style='flex:1;'><div class='comp-title'>Non-Staff (Shift)</div><div class='comp-row'><span>Attendant</span><span class='comp-val'>{res_b['att']} Pax</span></div><div class='comp-row'><span>Gate/Cashier</span><span class='comp-val'>{res_b['cashier']} Pax</span></div><div class='comp-row'><span>Control Room</span><span class='comp-val'>{res_b['ctrl']} Pax</span></div></div><div class='comp-box' style='flex:1;'><div class='comp-title'>Staff (Office)</div><div class='comp-row'><span>Admin</span><span class='comp-val'>{res_b['adm']} Pax</span></div><div class='comp-row'><span>Supervisor</span><span class='comp-val'>{res_b['spv']} Pax</span></div><div class='comp-row'><span>Manager (CPM)</span><span class='comp-val'>{res_b['cpm']} Pax</span></div></div></div><div class='total-cost-box total-cost-b'><div class='total-label'>{cost_label}</div><p class='total-value-b'>{format_idr(res_b['cost'])}</p></div></div>"
     st.markdown(html_b, unsafe_allow_html=True)
 
 # --- DATA EXCEL ---
 df_comparison = pd.DataFrame({
     "Metric": [
         "Project ID", "Parking System", "Est. Revenue", 
-        "Total MPP (Pax)", "Ops Shift (Pax)", "Back Office (Pax)", "Est. Pax / Group",
+        "TOTAL MPP (Pax)", "--- NON-STAFF SHIFT ---", "Attendant (Pax)", "Gate/Cashier (Pax)", "Control Room (Pax)", "Est. Pax / Group",
+        "--- STAFF OFFICE ---", "Admin (Pax)", "Supervisor (Pax)", "Manager/CPM (Pax)",
         "Cost/Rev Ratio (%)", f"{cost_label} (Rp)"
     ],
     "Scenario A": [
         standard_project_id, sys_a, rev_a, 
-        res_a['mpp'], res_a['shift_mpp'], res_a['office_mpp'], get_shift_distribution(res_a['shift_mpp']),
+        res_a['mpp'], "", res_a['att'], res_a['cashier'], res_a['ctrl'], get_shift_distribution(res_a['shift_mpp']),
+        "", res_a['adm'], res_a['spv'], res_a['cpm'],
         round(res_a['ratio'], 2), res_a['cost']
     ],
     "Scenario B": [
         standard_project_id, sys_b, rev_b, 
-        res_b['mpp'], res_b['shift_mpp'], res_b['office_mpp'], get_shift_distribution(res_b['shift_mpp']),
+        res_b['mpp'], "", res_b['att'], res_b['cashier'], res_b['ctrl'], get_shift_distribution(res_b['shift_mpp']),
+        "", res_b['adm'], res_b['spv'], res_b['cpm'],
         round(res_b['ratio'], 2), res_b['cost']
     ]
 })
