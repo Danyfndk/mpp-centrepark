@@ -6,13 +6,13 @@ from io import BytesIO
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="CP CorePlanner - Centrepark", page_icon="🅿️", layout="centered")
 
-# --- LOGIKA CORE (KALKULATOR) ---
+# --- LOGIKA CORE (KALKULATOR OPTIMAL) ---
 class SmartMPP:
     def __init__(self, umk):
         self.umk = umk
         self.complexity = {'Hospitality': 1.15, 'Apartment': 1.10, 'Pasar Modern': 1.10, 'Ruko': 1.0, 'Rukan': 1.0}
         self.bpjs_rate, self.thr_rate, self.uuck_rate = 0.0624, 0.0833, 0.0833
-        # Fixed Overhead: Seragam Amortisasi (200rb) + Training/HRIS (300rb)
+        # Amortisasi Seragam (200rb) + Training/HRIS (300rb)
         self.fixed_overhead = 200000 + 300000
 
     def get_cost(self, count, allowance_rate=0):
@@ -42,7 +42,7 @@ class SmartMPP:
 
         f_cashier, f_ctrl, f_att = math.floor(cashier), math.floor(ctrl), math.floor(att)
 
-        # 2. Staffing (Rounddown based on Revenue)
+        # 2. Staffing Optimal (Rounddown based on Revenue)
         if rev >= 500000000: spv, adm, cpm = 3, 1, 1
         elif rev >= 150000000: spv, adm, cpm = 1, 0, 0
         else: spv, adm, cpm = 0, 0, 0
@@ -66,14 +66,13 @@ class SmartMPP:
                       f_spv, f_adm, f_cpm, total_mpp, f"Rp {avg_cost:,.0f}", f"Rp {cost_total:,.0f}", f"{round(ratio, 2)}%"]
         })
 
-# --- UI STREAMLIT ---
-# Logo Centrepark (Pastikan file logo.png ada di folder yang sama)
-st.image("logo_centrepark.png", width=250)
-st.title("🛡️ CP CorePlanner v1.0")
-st.markdown("<small>Optimized Manpower & P&L Guardrail System</small>", unsafe_allow_html=True)
+# --- UI STREAMLIT (BERSIH & SIMETRIS) ---
+st.title("🛡️ CP CorePlanner v1.1")
+st.markdown("<h4 style='color: #004a99;'>PT Centrepark Citra Corpora</h4>", unsafe_allow_html=True)
+st.markdown("<small>Integrated Manpower Analytics & Fatigue Management</small>", unsafe_allow_html=True)
 st.divider()
 
-# Input Grid (Symmetrical Layout)
+# Input Grid
 col1, col2 = st.columns(2)
 with col1:
     name = st.text_input("Nama Project", "Site Centerpark")
@@ -89,7 +88,7 @@ with col2:
     c_motor = st.number_input("Kapasitas Motor", value=500, min_value=0)
     rev = st.number_input("Estimasi Revenue (Rp)", value=150000000, step=1000000)
 
-st.info(f"Format Nominal: UMK Rp {umk:,.0f} | Revenue Rp {rev:,.0f}".replace(",", "."))
+st.info(f"Konfirmasi Input: UMK Rp {umk:,.0f} | Revenue Rp {rev:,.0f}".replace(",", "."))
 
 if st.button("PROSES ANALISIS MPP", use_container_width=True, type="primary"):
     calc = SmartMPP(umk)
@@ -100,13 +99,13 @@ if st.button("PROSES ANALISIS MPP", use_container_width=True, type="primary"):
     
     ratio_val = float(df.iloc[-1, 1].replace('%',''))
     if ratio_val > 30:
-        st.warning(f"⚠️ Labor Cost Ratio ({ratio_val}%) melebihi standar 30%!")
+        st.error(f"⚠️ Perhatian: Labor Cost Ratio ({ratio_val}%) melebihi ambang batas profitabilitas 30%!")
     else:
-        st.success(f"✅ Labor Cost Ratio ({ratio_val}%) Aman.")
+        st.success(f"✅ Aman: Labor Cost Ratio ({ratio_val}%) sesuai dengan target P&L.")
 
     # Export Function
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='MPP_Analysis')
-    st.download_button(label="📥 Download Hasil (Excel)", data=output.getvalue(), 
+    st.download_button(label="📥 Download Hasil ke Excel", data=output.getvalue(), 
                        file_name=f"MPP_{name.replace(' ','_')}.xlsx", mime="application/vnd.ms-excel")
