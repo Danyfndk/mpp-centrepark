@@ -20,60 +20,50 @@ def get_shift_distribution(shift_mpp):
 st.set_page_config(page_title="CP CorePlanner", page_icon="🅿️", layout="wide")
 
 st.markdown("""
-    <style>
-    /* Global Background */
-    .main { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] { background-color: #004a99 !important; }
-    section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 { color: #ffffff !important; }
-    section[data-testid="stSidebar"] input { color: #1e293b !important; background-color: #ffffff !important; border-radius: 6px !important; border: 1px solid #cbd5e1 !important; }
-    section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !important; }
-    
-    /* Header Cards (Kartu Judul) */
-    .header-card-a { background-color: #ffffff; padding: 15px 20px; border-radius: 12px; border-top: 6px solid #004a99; box-shadow: 0 4px 10px rgba(0,74,153,0.1); margin-bottom: 15px; }
-    .header-card-b { background-color: #ffffff; padding: 15px 20px; border-radius: 12px; border-top: 6px solid #d97706; box-shadow: 0 4px 10px rgba(217,119,6,0.1); margin-bottom: 15px; }
-    .header-title { margin: 0; color: #1e293b; font-weight: 800; font-size: 1.3rem; }
+<style>
+.main { background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+section[data-testid="stSidebar"] { background-color: #004a99 !important; }
+section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 { color: #ffffff !important; }
+section[data-testid="stSidebar"] input { color: #1e293b !important; background-color: #ffffff !important; border-radius: 6px !important; border: 1px solid #cbd5e1 !important; }
+section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !important; }
 
-    /* Result Cards (Kartu Hasil) */
-    .result-card { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-top: 5px; margin-bottom: 20px; }
+.header-card-a { background-color: #ffffff; padding: 15px 20px; border-radius: 12px; border-top: 6px solid #004a99; box-shadow: 0 4px 10px rgba(0,74,153,0.1); margin-bottom: 15px; }
+.header-card-b { background-color: #ffffff; padding: 15px 20px; border-radius: 12px; border-top: 6px solid #d97706; box-shadow: 0 4px 10px rgba(217,119,6,0.1); margin-bottom: 15px; }
+.header-title { margin: 0; color: #1e293b; font-weight: 800; font-size: 1.3rem; }
 
-    /* Metric Cards */
-    .metric-row { display: flex; gap: 15px; margin-bottom: 15px; }
-    .metric-card { background-color: #f8fafc; padding: 15px; border-radius: 10px; flex: 1; border: 1px solid #e2e8f0; }
-    .metric-card-a { border-left: 5px solid #004a99; } 
-    .metric-card-b { border-left: 5px solid #d97706; } 
-    .metric-label { font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .metric-value { font-size: 1.3rem; color: #1e293b; font-weight: 900; margin-top: 5px;}
-    
-    /* Breakdown Bar */
-    .breakdown-bar { display: flex; background-color: #f1f5f9; padding: 12px 10px; border-radius: 10px; margin-bottom: 20px; justify-content: space-between; }
-    .bd-item { display: flex; flex-direction: column; text-align: center; flex: 1; }
-    .bd-border { border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; }
-    .bd-label { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
-    .bd-val { font-size: 1rem; color: #0f172a; font-weight: 800; margin-top: 2px;}
+.result-card { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-top: 5px; margin-bottom: 20px; }
 
-    /* Highlight Total Cost */
-    .total-cost-box { padding: 15px; border-radius: 10px; text-align: center; }
-    .total-cost-a { background-color: #f0f7ff; border: 2px dashed #93c5fd; }
-    .total-cost-b { background-color: #fffbeb; border: 2px dashed #fcd34d; }
-    .total-label { font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; }
-    .total-value-a { font-size: 1.6rem; font-weight: 900; color: #004a99; margin: 0; }
-    .total-value-b { font-size: 1.6rem; font-weight: 900; color: #d97706; margin: 0; }
+.metric-row { display: flex; gap: 15px; margin-bottom: 15px; }
+.metric-card { background-color: #f8fafc; padding: 15px; border-radius: 10px; flex: 1; border: 1px solid #e2e8f0; }
+.metric-card-a { border-left: 5px solid #004a99; } 
+.metric-card-b { border-left: 5px solid #d97706; } 
+.metric-label { font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.metric-value { font-size: 1.3rem; color: #1e293b; font-weight: 900; margin-top: 5px;}
 
-    /* Helper Text */
-    .money-helper { font-size: 0.85rem; font-weight: 700; margin-top: -10px; margin-bottom: 15px; padding-left: 5px;}
-    .helper-a { color: #004a99; }
-    .helper-b { color: #d97706; }
-    .money-helper-sidebar { font-size: 0.85rem; font-weight: 700; color: #fbbf24; margin-top: -10px; margin-bottom: 15px; }
+.breakdown-bar { display: flex; background-color: #f1f5f9; padding: 12px 10px; border-radius: 10px; margin-bottom: 20px; justify-content: space-between; }
+.bd-item { display: flex; flex-direction: column; text-align: center; flex: 1; }
+.bd-border { border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; }
+.bd-label { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+.bd-val { font-size: 1rem; color: #0f172a; font-weight: 800; margin-top: 2px;}
 
-    /* Button */
-    div.stButton > button, div.stDownloadButton > button { background-color: #004a99 !important; color: white !important; border-radius: 8px !important; font-weight: 700 !important; width: 100%; padding: 12px 0 !important; border: none !important; text-transform: uppercase; letter-spacing: 1px;}
-    div.stButton > button:hover, div.stDownloadButton > button:hover { background-color: #003366 !important; box-shadow: 0 4px 15px rgba(0,74,153,0.3) !important; }
-    </style>
-    """, unsafe_allow_html=True)
+.total-cost-box { padding: 15px; border-radius: 10px; text-align: center; }
+.total-cost-a { background-color: #f0f7ff; border: 2px dashed #93c5fd; }
+.total-cost-b { background-color: #fffbeb; border: 2px dashed #fcd34d; }
+.total-label { font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; }
+.total-value-a { font-size: 1.6rem; font-weight: 900; color: #004a99; margin: 0; }
+.total-value-b { font-size: 1.6rem; font-weight: 900; color: #d97706; margin: 0; }
+
+.money-helper { font-size: 0.85rem; font-weight: 700; margin-top: -10px; margin-bottom: 15px; padding-left: 5px;}
+.helper-a { color: #004a99; }
+.helper-b { color: #d97706; }
+.money-helper-sidebar { font-size: 0.85rem; font-weight: 700; color: #fbbf24; margin-top: -10px; margin-bottom: 15px; }
+
+div.stButton > button, div.stDownloadButton > button { background-color: #004a99 !important; color: white !important; border-radius: 8px !important; font-weight: 700 !important; width: 100%; padding: 12px 0 !important; border: none !important; text-transform: uppercase; letter-spacing: 1px;}
+div.stButton > button:hover, div.stDownloadButton > button:hover { background-color: #003366 !important; box-shadow: 0 4px 15px rgba(0,74,153,0.3) !important; }
+</style>
+""", unsafe_allow_html=True)
 
 # --- 2. CORE COMPLIANCE ENGINE ---
 class ComplianceEngine:
@@ -222,100 +212,91 @@ st.subheader(f"💡 What-If Scenario Analysis: {standard_project_id}")
 col_a, col_b = st.columns(2)
 
 with col_a:
-    # 1. KARTU JUDUL
     st.markdown("<div class='header-card-a'><h3 class='header-title'>🅰️ Scenario A</h3></div>", unsafe_allow_html=True)
     
-    # 2. INPUT STREAMLIT NORMAL
     sys_a = st.selectbox("System A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
     rev_a = st.number_input("Est. Revenue A", value=150000000, step=10000000, key="rev_a")
     st.markdown(f"<div class='money-helper helper-a'>🎯 {format_rp(rev_a)}</div>", unsafe_allow_html=True)
     
-    # KALKULASI
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
-    # 3. KARTU HASIL (TERBUNGKUS RAPI DALAM SATU BLOK HTML)
+    # PERHATIKAN: TIDAK ADA SPASI / INDENTASI DI SINI AGAR TIDAK JADI CODE BLOCK
     st.markdown(f"""
-    <div class='result-card'>
-        <div class='metric-row'>
-            <div class='metric-card metric-card-a'>
-                <div class='metric-label'>Total MPP</div>
-                <div class='metric-value'>{res_a['mpp']} Pax</div>
-            </div>
-            <div class='metric-card metric-card-a'>
-                <div class='metric-label'>Cost Ratio</div>
-                <div class='metric-value'>{res_a['ratio']:.2f}%</div>
-            </div>
-        </div>
-        
-        <div class='breakdown-bar'>
-            <div class='bd-item'>
-                <span class='bd-label'>Ops Shift</span>
-                <span class='bd-val'>{res_a['shift_mpp']} Pax</span>
-            </div>
-            <div class='bd-item bd-border'>
-                <span class='bd-label'>Per Regu (Group)</span>
-                <span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span>
-            </div>
-            <div class='bd-item'>
-                <span class='bd-label'>Back Office</span>
-                <span class='bd-val'>{res_a['office_mpp']} Pax</span>
-            </div>
-        </div>
-        
-        <div class='total-cost-box total-cost-a'>
-            <div class='total-label'>{cost_label}</div>
-            <p class='total-value-a'>{format_rp(res_a['cost'])}</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class='result-card'>
+<div class='metric-row'>
+<div class='metric-card metric-card-a'>
+<div class='metric-label'>Total MPP</div>
+<div class='metric-value'>{res_a['mpp']} Pax</div>
+</div>
+<div class='metric-card metric-card-a'>
+<div class='metric-label'>Cost Ratio</div>
+<div class='metric-value'>{res_a['ratio']:.2f}%</div>
+</div>
+</div>
+<div class='breakdown-bar'>
+<div class='bd-item'>
+<span class='bd-label'>Ops Shift</span>
+<span class='bd-val'>{res_a['shift_mpp']} Pax</span>
+</div>
+<div class='bd-item bd-border'>
+<span class='bd-label'>Per Regu (Group)</span>
+<span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span>
+</div>
+<div class='bd-item'>
+<span class='bd-label'>Back Office</span>
+<span class='bd-val'>{res_a['office_mpp']} Pax</span>
+</div>
+</div>
+<div class='total-cost-box total-cost-a'>
+<div class='total-label'>{cost_label}</div>
+<p class='total-value-a'>{format_rp(res_a['cost'])}</p>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
 
 with col_b:
-    # 1. KARTU JUDUL
     st.markdown("<div class='header-card-b'><h3 class='header-title'>🅱️ Scenario B</h3></div>", unsafe_allow_html=True)
     
-    # 2. INPUT STREAMLIT NORMAL
     sys_b = st.selectbox("System B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
     rev_b = st.number_input("Est. Revenue B", value=250000000, step=10000000, key="rev_b")
     st.markdown(f"<div class='money-helper helper-b'>🎯 {format_rp(rev_b)}</div>", unsafe_allow_html=True)
     
-    # KALKULASI
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
-    # 3. KARTU HASIL (TERBUNGKUS RAPI DALAM SATU BLOK HTML)
+    # PERHATIKAN: TIDAK ADA SPASI / INDENTASI DI SINI AGAR TIDAK JADI CODE BLOCK
     st.markdown(f"""
-    <div class='result-card'>
-        <div class='metric-row'>
-            <div class='metric-card metric-card-b'>
-                <div class='metric-label'>Total MPP</div>
-                <div class='metric-value'>{res_b['mpp']} Pax</div>
-            </div>
-            <div class='metric-card metric-card-b'>
-                <div class='metric-label'>Cost Ratio</div>
-                <div class='metric-value'>{res_b['ratio']:.2f}%</div>
-            </div>
-        </div>
-        
-        <div class='breakdown-bar'>
-            <div class='bd-item'>
-                <span class='bd-label'>Ops Shift</span>
-                <span class='bd-val'>{res_b['shift_mpp']} Pax</span>
-            </div>
-            <div class='bd-item bd-border'>
-                <span class='bd-label'>Per Regu (Group)</span>
-                <span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span>
-            </div>
-            <div class='bd-item'>
-                <span class='bd-label'>Back Office</span>
-                <span class='bd-val'>{res_b['office_mpp']} Pax</span>
-            </div>
-        </div>
-        
-        <div class='total-cost-box total-cost-b'>
-            <div class='total-label'>{cost_label}</div>
-            <p class='total-value-b'>{format_rp(res_b['cost'])}</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class='result-card'>
+<div class='metric-row'>
+<div class='metric-card metric-card-b'>
+<div class='metric-label'>Total MPP</div>
+<div class='metric-value'>{res_b['mpp']} Pax</div>
+</div>
+<div class='metric-card metric-card-b'>
+<div class='metric-label'>Cost Ratio</div>
+<div class='metric-value'>{res_b['ratio']:.2f}%</div>
+</div>
+</div>
+<div class='breakdown-bar'>
+<div class='bd-item'>
+<span class='bd-label'>Ops Shift</span>
+<span class='bd-val'>{res_b['shift_mpp']} Pax</span>
+</div>
+<div class='bd-item bd-border'>
+<span class='bd-label'>Per Regu (Group)</span>
+<span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span>
+</div>
+<div class='bd-item'>
+<span class='bd-label'>Back Office</span>
+<span class='bd-val'>{res_b['office_mpp']} Pax</span>
+</div>
+</div>
+<div class='total-cost-box total-cost-b'>
+<div class='total-label'>{cost_label}</div>
+<p class='total-value-b'>{format_rp(res_b['cost'])}</p>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
 # --- DATA EXCEL ---
 df_comparison = pd.DataFrame({
