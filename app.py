@@ -3,32 +3,70 @@ import pandas as pd
 import math
 from io import BytesIO
 
-# --- 1. SaaS UI STYLING (NAVY BLUE & RESPONSIVE) ---
+# --- 1. SaaS UI STYLING (PREMIUM & RESPONSIVE) ---
 st.set_page_config(page_title="CP CorePlanner", page_icon="🅿️", layout="wide")
 
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    section[data-testid="stSidebar"] { background-color: #004a99; color: white; }
-    section[data-testid="stSidebar"] * { color: white !important; }
+    /* Main Background */
+    .main { background-color: #f4f6f9; }
     
-    .metric-card {
-        background-color: #ffffff; padding: 15px; border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid #004a99;
-        margin-bottom: 10px;
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] { 
+        background-color: #004a99 !important; 
     }
-    .metric-label { font-size: 0.8rem; color: #004a99; font-weight: 700; text-transform: uppercase; }
-    .metric-value { font-size: 1.1rem; color: #1e293b; font-weight: 800; }
+    
+    /* Hanya ubah label, teks, dan heading menjadi putih di sidebar */
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 { 
+        color: #ffffff !important; 
+    }
 
+    /* Pastikan input text dan angka memiliki warna gelap agar terbaca */
+    section[data-testid="stSidebar"] input {
+        color: #1e293b !important;
+        background-color: #ffffff !important;
+        border-radius: 6px !important;
+    }
+
+    /* Pastikan teks dropdown/selectbox memiliki warna gelap */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] * {
+        color: #1e293b !important;
+    }
+    
+    /* Metric Cards Styling with Hover Effect */
+    .metric-card {
+        background-color: #ffffff; padding: 20px; border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #004a99;
+        margin-bottom: 10px; transition: all 0.2s ease-in-out;
+    }
+    .metric-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    }
+    .metric-label { font-size: 0.85rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 1.4rem; color: #004a99; font-weight: 900; margin-top: 5px;}
+
+    /* Scenario Box Container */
     .scenario-box {
-        background-color: #ffffff; padding: 20px; border-radius: 15px;
-        border-top: 5px solid #004a99; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        background-color: #ffffff; padding: 25px; border-radius: 15px;
+        border-top: 6px solid #004a99; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         margin-bottom: 20px; height: 100%;
     }
     
-    div.stButton > button {
+    /* Premium Button Styling */
+    div.stButton > button, div.stDownloadButton > button {
         background-color: #004a99 !important; color: white !important;
-        border-radius: 8px !important; font-weight: bold !important; width: 100%;
+        border-radius: 8px !important; font-weight: 700 !important; 
+        width: 100%; padding: 10px 0 !important; border: none !important;
+        transition: all 0.3s ease !important;
+    }
+    div.stButton > button:hover, div.stDownloadButton > button:hover {
+        background-color: #003366 !important;
+        box-shadow: 0 4px 12px rgba(0,74,153,0.3) !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -47,30 +85,24 @@ class ComplianceEngine:
         return base_cost_per_head * count
 
     def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev, mgt_fee_rate=0.0):
-        # STANDAR KERJA 40 JAM/MINGGU
         ff = (hours * 7) / 40 
         
-        # MPP Allocation
         cashier = math.floor((g_in + g_out) * ff) if sys == 'Manual' else 0
-        
         if sys == 'Manual':
             att = math.floor((math.ceil((c_mob + c_mot) / 500)) * ff)
         elif sys == 'Semi-Auto':
             att = math.floor((g_out + math.ceil((c_mob + c_mot) / 500)) * ff)
-        else: # Full Manless
+        else: 
             att = math.floor((math.ceil((c_mob + c_mot) / 1000)) * ff)
             
         ctrl = math.floor(1 * ff) if sys != 'Manual' else 0
 
-        # Staffing Logic based on Revenue
         spv, adm, cpm = (3, 1, 1) if rev >= 500000000 else (1, 0, 0) if rev >= 150000000 else (0, 0, 0)
         
-        # Kalkulasi Actual Manpower Cost (Dasar)
         actual_manpower_cost = self.get_cost(cashier + ctrl + att, 0) + \
                                self.get_cost(adm, 0.15) + self.get_cost(spv, 0.20) + \
                                self.get_cost(cpm, 0.25)
         
-        # Menambahkan Management Fee jika ada
         final_cost = actual_manpower_cost * (1 + mgt_fee_rate)
         
         total_mpp = cashier + ctrl + att + spv + adm + cpm
@@ -144,16 +176,13 @@ with st.sidebar:
 
     st.divider()
     
-    # --- FITUR BARU: COMMERCIAL / MGT FEE ---
     st.header("📈 Commercial Settings")
     include_mgt_fee = st.checkbox("Include Management Fee")
-    mgt_fee_rate = 0.0 # Default 0
+    mgt_fee_rate = 0.0 
     if include_mgt_fee:
         mgt_fee_rate = st.number_input("Management Fee (%)", value=10.0, step=1.0) / 100
 
 eng = ComplianceEngine(umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate)
-
-# Menentukan label tampilan cost
 cost_label = "Total Cost (incl. Mgt Fee)" if include_mgt_fee else "Actual Manpower Cost"
 
 # WHAT-IF COMPARISON
@@ -166,16 +195,22 @@ with col_a:
     sys_a = st.selectbox("System A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
     rev_a = st.number_input("Est. Revenue A (Rp)", value=150000000, key="rev_a")
     
-    # Mengirimkan mgt_fee_rate ke engine
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
     st.markdown(f"""
-        <div style='display:flex; gap:10px; margin-bottom:15px;'>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div>
+        <div style='display:flex; gap:15px; margin-bottom:20px; margin-top:15px;'>
+            <div class='metric-card' style='flex:1'>
+                <div class='metric-label'>Total MPP</div>
+                <div class='metric-value'>{res_a['mpp']} Pax</div>
+            </div>
+            <div class='metric-card' style='flex:1'>
+                <div class='metric-label'>Cost Ratio</div>
+                <div class='metric-value'>{res_a['ratio']:.2f}%</div>
+            </div>
         </div>
     """, unsafe_allow_html=True)
-    st.write(f"**{cost_label}: Rp {res_a['cost']:,.0f}**".replace(",","."))
+    st.write(f"**{cost_label}:**")
+    st.markdown(f"<h3 style='color:#004a99; margin-top: -10px;'>Rp {res_a['cost']:,.0f}</h3>".replace(",","."), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_b:
@@ -184,16 +219,22 @@ with col_b:
     sys_b = st.selectbox("System B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
     rev_b = st.number_input("Est. Revenue B (Rp)", value=250000000, key="rev_b")
     
-    # Mengirimkan mgt_fee_rate ke engine
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
     st.markdown(f"""
-        <div style='display:flex; gap:10px; margin-bottom:15px;'>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div>
+        <div style='display:flex; gap:15px; margin-bottom:20px; margin-top:15px;'>
+            <div class='metric-card' style='flex:1'>
+                <div class='metric-label'>Total MPP</div>
+                <div class='metric-value'>{res_b['mpp']} Pax</div>
+            </div>
+            <div class='metric-card' style='flex:1'>
+                <div class='metric-label'>Cost Ratio</div>
+                <div class='metric-value'>{res_b['ratio']:.2f}%</div>
+            </div>
         </div>
     """, unsafe_allow_html=True)
-    st.write(f"**{cost_label}: Rp {res_b['cost']:,.0f}**".replace(",","."))
+    st.write(f"**{cost_label}:**")
+    st.markdown(f"<h3 style='color:#004a99; margin-top: -10px;'>Rp {res_b['cost']:,.0f}</h3>".replace(",","."), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- DATA EXCEL ---
