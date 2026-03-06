@@ -3,190 +3,187 @@ import pandas as pd
 import math
 from io import BytesIO
 
-# --- 1. CONFIG & SaaS STYLING (COMPANY COLORS) ---
+# --- 1. SaaS UI STYLING (NAVY BLUE & RESPONSIVE) ---
 st.set_page_config(page_title="CP CorePlanner", page_icon="🅿️", layout="wide")
 
-# Custom CSS for Centre Park Colors
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
+    section[data-testid="stSidebar"] { background-color: #004a99; color: white; }
+    section[data-testid="stSidebar"] * { color: white !important; }
     
-    /* Sidebar Styling (Blue Background) */
-    section[data-testid="stSidebar"] {
-        background-color: #004a99; /* Navy Blue dari logo */
-        color: white;
-    }
-    section[data-testid="stSidebar"] .stMarkdown h1, 
-    section[data-testid="stSidebar"] .stMarkdown h2, 
-    section[data-testid="stSidebar"] .stMarkdown p,
-    section[data-testid="stSidebar"] .stMarkdown label,
-    section[data-testid="stSidebar"] .stNumberInput label,
-    section[data-testid="stSidebar"] .stSelectbox label {
-        color: white !important;
-    }
-    section[data-testid="stSidebar"] .stMarkdown hr {
-        border-top: 1px solid rgba(255,255,255,0.2) !important;
-    }
-
-    /* Metric styling with Blue Labels */
     .metric-card {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border-left: 5px solid #004a99; /* Blue accent bar */
+        background-color: #ffffff; padding: 15px; border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid #004a99;
         margin-bottom: 10px;
     }
-    .metric-label { font-size: 0.85rem; color: #004a99; font-weight: 600; } /* Blue label */
-    .metric-value { 
-        font-size: 1.2rem; 
-        color: #1e293b; 
-        font-weight: 800; 
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .metric-label { font-size: 0.8rem; color: #004a99; font-weight: 700; text-transform: uppercase; }
+    .metric-value { font-size: 1.1rem; color: #1e293b; font-weight: 800; }
+
+    .scenario-box {
+        background-color: #ffffff; padding: 20px; border-radius: 15px;
+        border-top: 5px solid #004a99; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px; height: 100%;
     }
     
-    /* Delta metrics remain red/green for P&L readability */
-    .delta-over { color: #dc2626; font-size: 0.8rem; font-weight: bold; }
-    .delta-safe { color: #16a34a; font-size: 0.8rem; font-weight: bold; }
-    
-    /* Button Styling (Blue) */
-    div.stButton > button:first-child {
-        background-color: #004a99;
-        color: white;
-        border-radius: 8px;
-        height: 3em;
-        width: 100%;
-        font-weight: bold;
-    }
-    
-    /* Input border accent */
-    .stNumberInput input, .stSelectbox select {
-        border-color: #004a99 !important;
+    div.stButton > button {
+        background-color: #004a99 !important; color: white !important;
+        border-radius: 8px !important; font-weight: bold !important; width: 100%;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CORE ENGINE (AUDITED LOGIC) ---
-class SmartMPP:
+# --- 2. CORE COMPLIANCE ENGINE ---
+class ComplianceEngine:
     def __init__(self, umk):
         self.umk = umk
-        self.bpjs_rate, self.thr_rate, self.uuck_rate = 0.0624, 0.0833, 0.0833
-        # TETAP: Rp 500k Overhead (Seragam + HRIS/Training)
         self.fixed_overhead = 500000 
-        self.complexity = {'Hospitality': 1.15, 'Apartment': 1.10, 'Pasar Modern': 1.10, 'Ruko': 1.0, 'Rukan': 1.0}
+        self.bpjs_thr_uuck = 0.0624 + 0.0833 + 0.0833
 
-    def get_cost(self, count, allowance_rate=0):
+    def get_cost(self, count, allowance=0):
         if count <= 0: return 0
-        gp_plus_tunj = self.umk * (1 + allowance_rate)
-        variable = gp_plus_tunj * (self.bpjs_rate + self.thr_rate + self.uuck_rate)
-        return (gp_plus_tunj + variable + self.fixed_overhead) * count
+        gp_plus_tunj = self.umk * (1 + allowance)
+        return (gp_plus_tunj * (1 + self.bpjs_thr_uuck) + self.fixed_overhead) * count
 
-    def calculate(self, sys, g_in, g_out, c_mobil, c_motor, hours, rev):
-        # TETAP: STANDAR 40 JAM/MINGGU
+    def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev):
         ff = (hours * 7) / 40 
-        total_g = g_in + g_out
-        total_cap = c_mobil + c_motor
-        comp = self.complexity.get("Ruko", 1.0) # Fixed complex for dashboard demo
         
-        # MPP Logic with Strict Rounddown
-        cashier, ctrl, att = 0, 0, 0
+        cashier = math.floor((g_in + g_out) * ff) if sys == 'Manual' else 0
         if sys == 'Manual':
-            cashier = total_g * ff
-            att = (math.ceil(total_cap / 500)) * ff * comp
+            att = math.floor((math.ceil((c_mob + c_mot) / 500)) * ff)
         elif sys == 'Semi-Auto':
-            ctrl = 1 * ff
-            att = (g_out + math.ceil(total_cap / 500)) * ff * comp
-        else: # Full Manless
-            ctrl = 1 * ff
-            att = (math.ceil(total_cap / 1000)) * ff
+            att = math.floor((g_out + math.ceil((c_mob + c_mot) / 500)) * ff)
+        else: 
+            att = math.floor((math.ceil((c_mob + c_mot) / 1000)) * ff)
+        ctrl = math.floor(1 * ff) if sys != 'Manual' else 0
 
-        f_cashier, f_ctrl, f_att = math.floor(cashier), math.floor(ctrl), math.floor(att)
+        spv, adm, cpm = (3, 1, 1) if rev >= 500000000 else (1, 0, 0) if rev >= 150000000 else (0, 0, 0)
+        
+        cost_total = self.get_cost(cashier + ctrl + att, 0) + \
+                     self.get_cost(adm, 0.15) + self.get_cost(spv, 0.20) + \
+                     self.get_cost(cpm, 0.25)
+        
+        return {"mpp": cashier+ctrl+att+spv+adm+cpm, "ratio": (cost_total/rev)*100 if rev > 0 else 0, "cost": cost_total}
 
-        # Staffing Logic based on Revenue
-        if rev >= 500000000: spv, adm, cpm = 3, 1, 1
-        elif rev >= 150000000: spv, adm, cpm = 1, 0, 0
-        else: spv, adm, cpm = 0, 0, 0
+# --- FUNGSI DOWNLOAD EXCEL ---
+def generate_excel(df_comparison, df_shift):
+    output = BytesIO()
+    # Menggunakan xlsxwriter untuk bisa memanipulasi lebar kolom
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_comparison.to_excel(writer, sheet_name='Perbandingan Skenario', index=False)
+        df_shift.to_excel(writer, sheet_name='Jadwal Shift', index=False)
+        
+        workbook = writer.book
+        worksheet1 = writer.sheets['Perbandingan Skenario']
+        worksheet2 = writer.sheets['Jadwal Shift']
+        
+        # Format angka (Accounting/Rupiah)
+        money_format = workbook.add_format({'num_format': '#,##0'})
+        
+        # Autofit Kolom Sheet 1
+        for i, col in enumerate(df_comparison.columns):
+            column_len = max(df_comparison[col].astype(str).map(len).max(), len(col)) + 2
+            # Terapkan format angka jika nama kolom mengandung "Cost" atau "Revenue"
+            if "Cost" in col or "Revenue" in col:
+                worksheet1.set_column(i, i, column_len, money_format)
+            else:
+                worksheet1.set_column(i, i, column_len)
+                
+        # Autofit Kolom Sheet 2
+        for i, col in enumerate(df_shift.columns):
+            column_len = max(df_shift[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet2.set_column(i, i, column_len)
             
-        f_spv, f_adm, f_cpm = math.floor(spv), math.floor(adm), math.floor(cpm)
-        total_mpp = f_cashier + f_ctrl + f_att + f_spv + f_adm + f_cpm
-        
-        cost_total = self.get_cost(f_cashier+f_ctrl+f_att, 0) + \
-                     self.get_cost(f_adm, 0.15) + self.get_cost(f_spv, 0.20) + \
-                     self.get_cost(f_cpm, 0.25)
-        
-        avg_pax = cost_total / total_mpp if total_mpp > 0 else 0
-        ratio = (cost_total / rev) * 100 if rev > 0 else 0
-        
-        return {
-            "mpp": total_mpp, "ratio": ratio, "cost": cost_total, "avg_pax": avg_pax,
-            "details": pd.DataFrame({
-                "Category": ["Cashier", "Control Room", "Attendant", "Supervisor", "Admin", "Manager"],
-                "Pax": [f_cashier, f_ctrl, f_att, f_spv, f_adm, f_cpm]
-            })
-        }
+    return output.getvalue()
 
-# --- 3. DASHBOARD UI ---
-st.title("🛡️ CP CorePlanner")
-st.markdown("Automated Manpower & Profitability Guardrail for **Centrepark** [cite: 2025-08-05]")
+# --- 3. UI DASHBOARD ---
+st.title("🛡️ CP CorePlanner v2.5")
+st.markdown("Automated Shift Compliance & Rest-Day Logic")
 
 with st.sidebar:
-    st.header("⚙️ Configuration")
-    name = st.text_input("Project Name", "Site Centerpark")
-    
-    # Inputs styled inside sidebar
-    sys = st.selectbox("System Type", ['Manual', 'Semi-Auto', 'Full Manless'])
+    st.header("📍 Base Configuration")
+    umk = st.number_input("Regional UMK (Rp)", value=5729876)
     hours = st.slider("Operating Hours", 16, 24, 24)
     st.divider()
-    col_g1, col_g2 = st.columns(2)
-    with col_g1:
+    c_g1, c_g2 = st.columns(2)
+    with c_g1:
         g_in = st.number_input("Gate IN", value=3)
-        c_mobil = st.number_input("Cap Mobil", value=300)
-    with col_g2:
+        c_mob = st.number_input("Cap Mobil", value=300)
+    with c_g2:
         g_out = st.number_input("Gate OUT", value=3)
-        c_motor = st.number_input("Cap Motor", value=200)
-    
-    st.divider()
-    rev = st.number_input("Est. Monthly Revenue (Rp)", value=200000000)
-    umk = st.number_input("Regional UMK (Rp)", value=5729876)
-    
-    process = st.button("RUN ANALYSIS", type="primary")
+        c_mot = st.number_input("Cap Motor", value=200)
 
-if process:
-    eng = SmartMPP(umk)
-    res = eng.calculate(sys, g_in, g_out, c_mobil, c_motor, hours, rev)
-    
-    # KPI Metrics (Responsive 4 Columns)
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.markdown(f"<div class='metric-card'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res['mpp']} Pax</div></div>", unsafe_allow_html=True)
-    with m2:
-        st.markdown(f"<div class='metric-card'><div class='metric-label'>Total Labor Cost</div><div class='metric-value'>Rp {res['cost']:,.0f}</div></div>".replace(",","."), unsafe_allow_html=True)
-    with m3:
-        st.markdown(f"<div class='metric-card'><div class='metric-label'>Cost per Pax</div><div class='metric-value'>Rp {res['avg_pax']:,.0f}</div></div>".replace(",","."), unsafe_allow_html=True)
-    with m4:
-        diff = res['ratio'] - 30
-        delta_html = f"<div class='delta-over'>▲ {diff:.2f}% Over</div>" if diff > 0 else f"<div class='delta-safe'>▼ {abs(diff):.2f}% Safe</div>"
-        st.markdown(f"<div class='metric-card'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res['ratio']:.2f}%</div>{delta_html}</div>", unsafe_allow_html=True)
+eng = ComplianceEngine(umk)
 
-    st.divider()
-    
-    c1, c2 = st.columns([1, 1.5])
-    with c1:
-        st.subheader("📊 Manpower Distribution")
-        st.dataframe(res['details'], use_container_width=True, hide_index=True)
-        # Export logic
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            res['details'].to_excel(writer, index=False)
-        st.download_button("📥 EXPORT TO EXCEL", data=output.getvalue(), file_name=f"MPP_{name}.xlsx", use_container_width=True)
+# WHAT-IF COMPARISON (Sekarang Reaktif & Langsung Tampil)
+st.subheader("💡 What-If Scenario Comparison")
+col_a, col_b = st.columns(2)
 
-    with c2:
-        st.subheader("📈 Visual Analytics")
-        st.bar_chart(res['details'].set_index("Category"), color="#004a99") # Navy Blue charts
-        
-        if res['ratio'] > 30:
-            st.error(f"**P&L GUARDRAIL BREACHED**: Labor cost is {res['ratio']:.2f}% (P&L Target: 30%)")
-        else:
-            st.success("**P&L SECURE**: Labor cost is within the 30% threshold.")
+with col_a:
+    st.markdown("<div class='scenario-box'>", unsafe_allow_html=True)
+    st.subheader("🅰️ Skenario A")
+    sys_a = st.selectbox("Sistem A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
+    rev_a = st.number_input("Revenue A (Rp)", value=150000000, key="rev_a")
+    res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a)
+    
+    st.markdown(f"""
+        <div style='display:flex; gap:10px; margin-bottom:15px;'>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div>
+        </div>
+    """, unsafe_allow_html=True)
+    st.write(f"**Total Cost: Rp {res_a['cost']:,.0f}**".replace(",","."))
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col_b:
+    st.markdown("<div class='scenario-box'>", unsafe_allow_html=True)
+    st.subheader("🅱️ Skenario B")
+    sys_b = st.selectbox("Sistem B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
+    rev_b = st.number_input("Revenue B (Rp)", value=250000000, key="rev_b")
+    res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b)
+    
+    st.markdown(f"""
+        <div style='display:flex; gap:10px; margin-bottom:15px;'>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div>
+        </div>
+    """, unsafe_allow_html=True)
+    st.write(f"**Total Cost: Rp {res_b['cost']:,.0f}**".replace(",","."))
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- SIAPKAN DATA UNTUK EXCEL ---
+df_comparison = pd.DataFrame({
+    "Metrik": ["Sistem", "Revenue", "MPP (Pax)", "Ratio Cost/Rev (%)", "Total Cost (Rp)"],
+    "Skenario A": [sys_a, rev_a, res_a['mpp'], round(res_a['ratio'], 2), res_a['cost']],
+    "Skenario B": [sys_b, rev_b, res_b['mpp'], round(res_b['ratio'], 2), res_b['cost']]
+})
+
+shift_logic = pd.DataFrame({
+    "Hari": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"],
+    "Shift 1 (Pagi)": ["Grup A", "Grup A", "Grup B", "Grup B", "Grup C", "Grup C", "Grup D"],
+    "Shift 2 (Siang)": ["Grup B", "Grup B", "Grup C", "Grup C", "Grup D", "Grup D", "Grup A"],
+    "Shift 3 (Malam)": ["Grup C", "Grup C", "Grup D", "Grup D", "Grup A", "Grup A", "Grup B"],
+    "OFF (LIBUR)": ["Grup D", "Grup D", "Grup A", "Grup A", "Grup B", "Grup B", "Grup C"]
+})
+
+# TOMBOL DOWNLOAD EXCEL
+st.divider()
+excel_data = generate_excel(df_comparison, shift_logic)
+st.download_button(
+    label="📥 Download Hasil Analisis (Excel)",
+    data=excel_data,
+    file_name="Manpower_Planning_Report.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# SHIFT SCHEDULING WITH AUTOMATIC OFF DAYS
+st.subheader(f"🗓️ Penjadwalan Kerja Mingguan (Rest Day Automator)")
+st.info("Pola rotasi ini memastikan setiap karyawan memiliki minimal 1 hari LIBUR (OFF) dalam seminggu sesuai UU Ketenagakerjaan.")
+st.dataframe(shift_logic, use_container_width=True, hide_index=True)
+
+# VALIDASI P&L GUARDRAIL
+st.divider()
+if res_a['ratio'] > 30 or res_b['ratio'] > 30:
+    st.warning("⚠️ **Profitability Alert**: Salah satu skenario melebihi ambang batas biaya SDM 30%.")
+else:
+    st.success("✅ **P&L Secure**: Kedua skenario berada dalam batas biaya SDM yang sehat.")
