@@ -1,0 +1,112 @@
+import streamlit as st
+import pandas as pd
+import math
+from io import BytesIO
+
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(page_title="CP CorePlanner - Centrepark", page_icon="🅿️", layout="centered")
+
+# --- LOGIKA CORE (KALKULATOR) ---
+class SmartMPP:
+    def __init__(self, umk):
+        self.umk = umk
+        self.complexity = {'Hospitality': 1.15, 'Apartment': 1.10, 'Pasar Modern': 1.10, 'Ruko': 1.0, 'Rukan': 1.0}
+        self.bpjs_rate, self.thr_rate, self.uuck_rate = 0.0624, 0.0833, 0.0833
+        # Fixed Overhead: Seragam Amortisasi (200rb) + Training/HRIS (300rb)
+        self.fixed_overhead = 200000 + 300000
+
+    def get_cost(self, count, allowance_rate=0):
+        if count <= 0: return 0
+        gp_plus_tunj = self.umk * (1 + allowance_rate)
+        variable = gp_plus_tunj * (self.bpjs_rate + self.thr_rate + self.uuck_rate)
+        return (gp_plus_tunj + variable + self.fixed_overhead) * count
+
+    def calculate(self, name, land, sys, g_in, g_out, c_mobil, c_motor, hours, rev):
+        # Fatigue Factor: Maks 40 Jam/Minggu
+        ff = (hours * 7) / 40
+        total_g = g_in + g_out
+        total_cap = c_mobil + c_motor
+        comp = self.complexity.get(land, 1.0)
+        
+        # 1. Non-Staff (Rounddown)
+        cashier, ctrl, att = 0, 0, 0
+        if sys == 'Manual':
+            cashier = total_g * ff
+            att = (math.ceil(total_cap / 500)) * ff * comp
+        elif sys == 'Semi-Auto':
+            ctrl = 1 * ff
+            att = (g_out + math.ceil(total_cap / 500)) * ff * comp
+        else: # Full Manless
+            ctrl = 1 * ff
+            att = (math.ceil(total_cap / 1000)) * ff
+
+        f_cashier, f_ctrl, f_att = math.floor(cashier), math.floor(ctrl), math.floor(att)
+
+        # 2. Staffing (Rounddown based on Revenue)
+        if rev >= 500000000: spv, adm, cpm = 3, 1, 1
+        elif rev >= 150000000: spv, adm, cpm = 1, 0, 0
+        else: spv, adm, cpm = 0, 0, 0
+            
+        f_spv, f_adm, f_cpm = math.floor(spv), math.floor(adm), math.floor(cpm)
+        total_mpp = f_cashier + f_ctrl + f_att + f_spv + f_adm + f_cpm
+        
+        # 3. Biaya Terperinci
+        cost_total = self.get_cost(f_cashier+f_ctrl+f_att, 0) + \
+                     self.get_cost(f_adm, 0.15) + self.get_cost(f_spv, 0.20) + \
+                     self.get_cost(f_cpm, 0.25)
+        
+        avg_cost = cost_total / total_mpp if total_mpp > 0 else 0
+        ratio = (cost_total / rev) * 100 if rev > 0 else 0
+        
+        return pd.DataFrame({
+            "Indikator": ["Nama Project", "Sistem", "Kapasitas Mobil", "Kapasitas Motor", 
+                         "Cashier", "Control Room", "Attendant", "Supervisor", "Admin", 
+                         "Manager", "TOTAL SDM", "BIAYA/HEAD (All-in)", "TOTAL BIAYA SDM", "COST RATIO"],
+            "Hasil": [name, sys, f"{c_mobil} Lot", f"{c_motor} Lot", f_cashier, f_ctrl, f_att, 
+                      f_spv, f_adm, f_cpm, total_mpp, f"Rp {avg_cost:,.0f}", f"Rp {cost_total:,.0f}", f"{round(ratio, 2)}%"]
+        })
+
+# --- UI STREAMLIT ---
+# Logo Centrepark (Pastikan file logo.png ada di folder yang sama)
+st.image("logo_centrepark.png", width=250)
+st.title("🛡️ CP CorePlanner v1.0")
+st.markdown("<small>Optimized Manpower & P&L Guardrail System</small>", unsafe_allow_html=True)
+st.divider()
+
+# Input Grid (Symmetrical Layout)
+col1, col2 = st.columns(2)
+with col1:
+    name = st.text_input("Nama Project", "Site Centerpark")
+    land = st.selectbox("Jenis Landlord", ['Hospitality', 'Apartment', 'Pasar Modern', 'Ruko', 'Rukan'])
+    g_in = st.number_input("Jumlah Gate IN", value=2, min_value=0)
+    c_mobil = st.number_input("Kapasitas Mobil", value=500, min_value=0)
+    umk = st.number_input("UMK Berlaku (Rp)", value=5100000, step=1000)
+
+with col2:
+    sys = st.selectbox("Jenis Kerjasama", ['Manual', 'Semi-Auto', 'Full Manless'])
+    hours = st.selectbox("Jam Operasional", [24, 22, 20, 18, 16], index=0)
+    g_out = st.number_input("Jumlah Gate OUT", value=2, min_value=0)
+    c_motor = st.number_input("Kapasitas Motor", value=500, min_value=0)
+    rev = st.number_input("Estimasi Revenue (Rp)", value=150000000, step=1000000)
+
+st.info(f"Format Nominal: UMK Rp {umk:,.0f} | Revenue Rp {rev:,.0f}".replace(",", "."))
+
+if st.button("PROSES ANALISIS MPP", use_container_width=True, type="primary"):
+    calc = SmartMPP(umk)
+    df = calc.calculate(name, land, sys, g_in, g_out, c_mobil, c_motor, hours, rev)
+    
+    st.subheader(f"Hasil Analisis: {name.upper()}")
+    st.table(df)
+    
+    ratio_val = float(df.iloc[-1, 1].replace('%',''))
+    if ratio_val > 30:
+        st.warning(f"⚠️ Labor Cost Ratio ({ratio_val}%) melebihi standar 30%!")
+    else:
+        st.success(f"✅ Labor Cost Ratio ({ratio_val}%) Aman.")
+
+    # Export Function
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='MPP_Analysis')
+    st.download_button(label="📥 Download Hasil (Excel)", data=output.getvalue(), 
+                       file_name=f"MPP_{name.replace(' ','_')}.xlsx", mime="application/vnd.ms-excel")
