@@ -8,85 +8,52 @@ st.set_page_config(page_title="CP CorePlanner", page_icon="🅿️", layout="wid
 
 st.markdown("""
     <style>
-    /* Main Background */
     .main { background-color: #f4f6f9; }
-    
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] { 
-        background-color: #004a99 !important; 
-    }
-    
-    /* Hanya ubah label, teks, dan heading menjadi putih di sidebar */
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 { 
-        color: #ffffff !important; 
-    }
-
-    /* Pastikan input text dan angka memiliki warna gelap agar terbaca */
-    section[data-testid="stSidebar"] input {
-        color: #1e293b !important;
-        background-color: #ffffff !important;
-        border-radius: 6px !important;
-    }
-
-    /* Pastikan teks dropdown/selectbox memiliki warna gelap */
-    section[data-testid="stSidebar"] div[data-baseweb="select"] * {
-        color: #1e293b !important;
-    }
-    
-    /* Metric Cards Styling with Hover Effect */
-    .metric-card {
-        background-color: #ffffff; padding: 20px; border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #004a99;
-        margin-bottom: 10px; transition: all 0.2s ease-in-out;
-    }
-    .metric-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-    }
+    section[data-testid="stSidebar"] { background-color: #004a99 !important; }
+    section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 { color: #ffffff !important; }
+    section[data-testid="stSidebar"] input { color: #1e293b !important; background-color: #ffffff !important; border-radius: 6px !important; }
+    section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !important; }
+    .metric-card { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #004a99; margin-bottom: 10px; transition: all 0.2s ease-in-out; }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
     .metric-label { font-size: 0.85rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .metric-value { font-size: 1.4rem; color: #004a99; font-weight: 900; margin-top: 5px;}
-
-    /* Scenario Box Container */
-    .scenario-box {
-        background-color: #ffffff; padding: 25px; border-radius: 15px;
-        border-top: 6px solid #004a99; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        margin-bottom: 20px; height: 100%;
-    }
-    
-    /* Premium Button Styling */
-    div.stButton > button, div.stDownloadButton > button {
-        background-color: #004a99 !important; color: white !important;
-        border-radius: 8px !important; font-weight: 700 !important; 
-        width: 100%; padding: 10px 0 !important; border: none !important;
-        transition: all 0.3s ease !important;
-    }
-    div.stButton > button:hover, div.stDownloadButton > button:hover {
-        background-color: #003366 !important;
-        box-shadow: 0 4px 12px rgba(0,74,153,0.3) !important;
-    }
+    .scenario-box { background-color: #ffffff; padding: 25px; border-radius: 15px; border-top: 6px solid #004a99; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; height: 100%; }
+    div.stButton > button, div.stDownloadButton > button { background-color: #004a99 !important; color: white !important; border-radius: 8px !important; font-weight: 700 !important; width: 100%; padding: 10px 0 !important; border: none !important; transition: all 0.3s ease !important; }
+    div.stButton > button:hover, div.stDownloadButton > button:hover { background-color: #003366 !important; box-shadow: 0 4px 12px rgba(0,74,153,0.3) !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CORE COMPLIANCE ENGINE (FLEXIBLE COST LOGIC) ---
+# --- 2. CORE COMPLIANCE ENGINE (STRICT FINANCIAL LOGIC) ---
 class ComplianceEngine:
     def __init__(self, umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate):
         self.umk = umk
         self.fixed_overhead = fixed_overhead 
         self.bpjs_thr_uuck = bpjs_rate + thr_rate + uuck_rate
 
-    def get_cost(self, count, allowance=0):
+    def get_cost(self, count, allowance_rate=0):
         if count <= 0: return 0
-        gp_plus_tunj = self.umk * (1 + allowance)
-        base_cost_per_head = (gp_plus_tunj * (1 + self.bpjs_thr_uuck)) + self.fixed_overhead
+        
+        # 1. Gaji Pokok (UMK Base)
+        gaji_pokok = self.umk
+        
+        # 2. Tunjangan HANYA dari UMK
+        tunjangan = self.umk * allowance_rate
+        
+        # 3. Benefit (BPJS, THR, UUCK) HANYA dihitung dari UMK Murni
+        benefit = self.umk * self.bpjs_thr_uuck
+        
+        # 4. Total Cost per Head = Gaji Pokok + Tunjangan + Benefit + Amortisasi Fixed Overhead
+        base_cost_per_head = gaji_pokok + tunjangan + benefit + self.fixed_overhead
+        
         return base_cost_per_head * count
 
     def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev, mgt_fee_rate=0.0):
+        # STANDAR KERJA 40 JAM/MINGGU (Fatigue Factor)
         ff = (hours * 7) / 40 
         
+        # MPP Allocation
         cashier = math.floor((g_in + g_out) * ff) if sys == 'Manual' else 0
         if sys == 'Manual':
             att = math.floor((math.ceil((c_mob + c_mot) / 500)) * ff)
@@ -97,12 +64,30 @@ class ComplianceEngine:
             
         ctrl = math.floor(1 * ff) if sys != 'Manual' else 0
 
+        # Staffing Logic based on Revenue
         spv, adm, cpm = (3, 1, 1) if rev >= 500000000 else (1, 0, 0) if rev >= 150000000 else (0, 0, 0)
         
-        actual_manpower_cost = self.get_cost(cashier + ctrl + att, 0) + \
-                               self.get_cost(adm, 0.15) + self.get_cost(spv, 0.20) + \
-                               self.get_cost(cpm, 0.25)
+        # --- LOGIKA ALLOWANCE DINAMIS (Tertinggi = 30%) ---
+        adm_allowance = 0.10
+        spv_allowance = 0.20
+        cpm_allowance = 0.30
+
+        if cpm > 0:
+            pass # Formasi lengkap, allowance tetap standar
+        elif spv > 0:
+            spv_allowance = 0.30 # SPV jadi tertinggi
+        elif adm > 0:
+            adm_allowance = 0.30 # Admin jadi tertinggi
+            
+        # Kalkulasi Actual Manpower Cost murni
+        cost_ops = self.get_cost(cashier + ctrl + att, 0)
+        cost_adm = self.get_cost(adm, adm_allowance)
+        cost_spv = self.get_cost(spv, spv_allowance)
+        cost_cpm = self.get_cost(cpm, cpm_allowance)
         
+        actual_manpower_cost = cost_ops + cost_adm + cost_spv + cost_cpm
+        
+        # Penambahan Management Fee dari (Gaji + Benefit + Overhead)
         final_cost = actual_manpower_cost * (1 + mgt_fee_rate)
         
         total_mpp = cashier + ctrl + att + spv + adm + cpm
@@ -138,7 +123,7 @@ def generate_excel(df_comparison, df_shift):
 
 # --- 3. UI DASHBOARD ---
 st.title("🛡️ CP CorePlanner v2.5")
-st.markdown("Automated Shift Compliance, Actual Overhead & Rest-Day Logic")
+st.markdown("Strict Compliance: UU Ketenagakerjaan No.6/2023 (40 Hrs/Wk & Rest Days) & Actual P&L Logic")
 
 with st.sidebar:
     st.header("🏢 Project Identity") 
@@ -146,7 +131,7 @@ with st.sidebar:
     project_name = raw_project_name.strip().upper() 
     property_type = st.selectbox(
         "Property Type", 
-        ["MALL", "HOSPITAL", "OFFICE BUILDING", "HOTEL", "TRANSIT HUB", "SHOPHOUSE", "TRADITIONAL MARKET", "MODERN MARKET", "OTHER"]
+        ["MALL", "HOSPITAL", "OFFICE BUILDING", "APARTMENT", "HOTEL", "TRANSIT HUB", "SHOPHOUSE", "TRADITIONAL MARKET", "MODERN MARKET", "OTHER"]
     )
     standard_project_id = f"[{property_type}] - {project_name}"
     
@@ -168,8 +153,9 @@ with st.sidebar:
     
     st.header("💰 Actual Cost Variables")
     with st.expander("Adjust Variables", expanded=False):
-        fixed_overhead = st.number_input("Fixed Overhead / Pax (Uniform, HRIS, etc)", value=500000, step=50000)
-        st.caption("BPJS, THR & UUCK (% from base salary):")
+        # PENJELASAN AMORTISASI FIXED COST (Seragam 200k + Recruitment/Training/HRIS 300k)
+        fixed_overhead = st.number_input("Amortized Fixed Cost / Pax (Uniform 200k + HRIS/Rec/Trn 300k)", value=500000, step=50000)
+        st.caption("BPJS, THR & UUCK (Calculated strictly from Basic UMK):")
         bpjs_rate = st.number_input("BPJS Company Portion (%)", value=10.24, step=0.1) / 100
         thr_rate = st.number_input("THR Provision (%)", value=8.33, step=0.1) / 100
         uuck_rate = st.number_input("UUCK/Severance Provision (%)", value=8.33, step=0.1) / 100
@@ -181,6 +167,7 @@ with st.sidebar:
     mgt_fee_rate = 0.0 
     if include_mgt_fee:
         mgt_fee_rate = st.number_input("Management Fee (%)", value=10.0, step=1.0) / 100
+        st.caption("*Mgt Fee is calculated from Total Actual Cost (Salary+Benefit+Overhead)")
 
 eng = ComplianceEngine(umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate)
 cost_label = "Total Cost (incl. Mgt Fee)" if include_mgt_fee else "Actual Manpower Cost"
@@ -265,9 +252,9 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# SHIFT SCHEDULING
-st.subheader(f"🗓️ Weekly Work Scheduling (Rest Day Automator)")
-st.info("This rotation pattern ensures every employee has at least 1 REST DAY per week in compliance with labor regulations.")
+# SHIFT SCHEDULING (MENGACU UU KETENAGAKERJAAN)
+st.subheader(f"🗓️ Shift Rotation (UU No.6/2023 Compliant)")
+st.info("Ensures max 40 work hours/week with 4-Group Rotation. Guarantees minimum 1 Rest Day/week per employee in accordance with Indonesian Labor Law.")
 st.dataframe(shift_logic, use_container_width=True, hide_index=True)
 
 # VALIDASI P&L GUARDRAIL
