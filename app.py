@@ -3,9 +3,9 @@ import pandas as pd
 import math
 from io import BytesIO
 
-# --- FUNGSI HELPER ---
-def format_rp(angka):
-    return f"Rp {angka:,.0f}".replace(",", ".")
+# --- HELPER FUNCTIONS ---
+def format_idr(amount):
+    return f"Rp {amount:,.0f}".replace(",", ".")
 
 def get_shift_distribution(shift_mpp):
     if shift_mpp == 0: return "0 Pax"
@@ -60,7 +60,7 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !
 .helper-b { color: #d97706; }
 .money-helper-sidebar { font-size: 0.85rem; font-weight: 700; color: #fbbf24; margin-top: -10px; margin-bottom: 15px; }
 
-/* Info Box untuk alokasi shift */
+/* Info Box */
 .info-box-a { background-color: #e0f2fe; padding: 15px; border-radius: 8px; border-left: 5px solid #004a99; margin-bottom: 10px; color: #0f172a;}
 .info-box-b { background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 5px solid #d97706; margin-bottom: 20px; color: #0f172a;}
 
@@ -78,10 +78,10 @@ class ComplianceEngine:
 
     def get_cost(self, count, allowance_rate=0):
         if count <= 0: return 0
-        gaji_pokok = self.umk
-        tunjangan = self.umk * allowance_rate
-        benefit = self.umk * self.bpjs_thr_uuck
-        base_cost_per_head = gaji_pokok + tunjangan + benefit + self.fixed_overhead
+        base_salary = self.umk
+        allowance_amount = self.umk * allowance_rate
+        benefit_amount = self.umk * self.bpjs_thr_uuck
+        base_cost_per_head = base_salary + allowance_amount + benefit_amount + self.fixed_overhead
         return base_cost_per_head * count
 
     def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev, mgt_fee_rate=0.0):
@@ -166,17 +166,20 @@ with st.sidebar:
     st.header("🏢 Project Identity") 
     raw_project_name = st.text_input("Project Name", value="EXAMPLE PROJECT")
     project_name = raw_project_name.strip().upper() 
-    property_type = st.selectbox(
-        "Property Type", 
-        ["MALL", "HOSPITAL", "OFFICE BUILDING", "APARTMENT", "HOTEL", "TRANSIT HUB", "SHOPHOUSE", "TRADITIONAL MARKET", "MODERN MARKET", "OTHER"]
-    )
+    
+    # PROPERTY TYPE: Alphabetical Order with "OTHER" at the end
+    property_options = [
+        "APARTMENT", "HOSPITAL", "HOTEL", "MALL", "MODERN MARKET", 
+        "OFFICE BUILDING", "SHOPHOUSE", "TRADITIONAL MARKET", "TRANSIT HUB", "OTHER"
+    ]
+    property_type = st.selectbox("Property Type", property_options)
     standard_project_id = f"[{property_type}] - {project_name}"
     
     st.divider()
     
     st.header("📍 Base Configuration")
     umk = st.number_input("Regional Minimum Wage (UMK)", value=5729876, step=100000)
-    st.markdown(f"<div class='money-helper-sidebar'>✔️ {format_rp(umk)}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='money-helper-sidebar'>✔️ {format_idr(umk)}</div>", unsafe_allow_html=True)
     
     hours = st.slider("Operating Hours / Day", 16, 24, 24)
     
@@ -193,7 +196,7 @@ with st.sidebar:
     st.header("💰 Actual Cost Variables")
     with st.expander("Adjust Financial Variables", expanded=False):
         fixed_overhead = st.number_input("Amortized Fixed Cost / Pax", value=500000, step=50000)
-        st.markdown(f"<div class='money-helper-sidebar'>✔️ {format_rp(fixed_overhead)}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='money-helper-sidebar'>✔️ {format_idr(fixed_overhead)}</div>", unsafe_allow_html=True)
         st.caption("BPJS, THR & UUCK (Strictly from Basic UMK):")
         bpjs_rate = st.number_input("BPJS Company Portion (%)", value=10.24, step=0.1) / 100
         thr_rate = st.number_input("THR Provision (%)", value=8.33, step=0.1) / 100
@@ -220,12 +223,11 @@ with col_a:
     
     sys_a = st.selectbox("System A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
     rev_a = st.number_input("Est. Revenue A", value=150000000, step=10000000, key="rev_a")
-    st.markdown(f"<div class='money-helper helper-a'>🎯 {format_rp(rev_a)}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='money-helper helper-a'>🎯 {format_idr(rev_a)}</div>", unsafe_allow_html=True)
     
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
-    # KODE HTML SATU BARIS ANTI-BOCOR
-    html_a = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-a'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div><div class='metric-card metric-card-a'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_a['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_a['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-a'><div class='total-label'>{cost_label}</div><p class='total-value-a'>{format_rp(res_a['cost'])}</p></div></div>"
+    html_a = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-a'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div><div class='metric-card metric-card-a'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_a['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_a['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-a'><div class='total-label'>{cost_label}</div><p class='total-value-a'>{format_idr(res_a['cost'])}</p></div></div>"
     st.markdown(html_a, unsafe_allow_html=True)
 
 with col_b:
@@ -233,12 +235,11 @@ with col_b:
     
     sys_b = st.selectbox("System B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
     rev_b = st.number_input("Est. Revenue B", value=250000000, step=10000000, key="rev_b")
-    st.markdown(f"<div class='money-helper helper-b'>🎯 {format_rp(rev_b)}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='money-helper helper-b'>🎯 {format_idr(rev_b)}</div>", unsafe_allow_html=True)
     
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
-    # KODE HTML SATU BARIS ANTI-BOCOR
-    html_b = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-b'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div><div class='metric-card metric-card-b'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_b['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_b['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-b'><div class='total-label'>{cost_label}</div><p class='total-value-b'>{format_rp(res_b['cost'])}</p></div></div>"
+    html_b = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-b'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div><div class='metric-card metric-card-b'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_b['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_b['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-b'><div class='total-label'>{cost_label}</div><p class='total-value-b'>{format_idr(res_b['cost'])}</p></div></div>"
     st.markdown(html_b, unsafe_allow_html=True)
 
 # --- DATA EXCEL ---
@@ -281,19 +282,18 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# --- SHIFT SCHEDULING (DENGAN DETAIL MANPOWER BARU) ---
+# --- SHIFT SCHEDULING ---
 st.subheader(f"🗓️ Shift Rotation (UU No.6/2023 Compliant)")
 st.info("Ensures max 40 work hours/week with 4-Group Rotation. Guarantees minimum 1 Rest Day/week per employee.")
 
-# PANEL INFORMASI JUMLAH PAX PER SHIFT
 st.markdown(f"""
     <div class='info-box-a'>
         <strong>🅰️ Scenario A Allocation:</strong><br>
-        Setiap shift (Pagi/Siang/Malam) akan dijaga oleh <b>{get_shift_distribution(res_a['shift_mpp'])}</b> di lapangan.
+        Each operational shift (Morning/Afternoon/Night) will be manned by <b>{get_shift_distribution(res_a['shift_mpp'])}</b> on-site.
     </div>
     <div class='info-box-b'>
         <strong>🅱️ Scenario B Allocation:</strong><br>
-        Setiap shift (Pagi/Siang/Malam) akan dijaga oleh <b>{get_shift_distribution(res_b['shift_mpp'])}</b> di lapangan.
+        Each operational shift (Morning/Afternoon/Night) will be manned by <b>{get_shift_distribution(res_b['shift_mpp'])}</b> on-site.
     </div>
 """, unsafe_allow_html=True)
 
