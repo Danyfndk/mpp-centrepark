@@ -48,7 +48,6 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !
 .bd-label { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
 .bd-val { font-size: 1rem; color: #0f172a; font-weight: 800; margin-top: 2px;}
 
-/* Detail Komposisi Box */
 .comp-box { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 0.85rem; }
 .comp-title { font-weight: 800; color: #1e293b; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; text-transform: uppercase; font-size: 0.75rem;}
 .comp-row { display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569; }
@@ -74,7 +73,7 @@ div.stButton > button:hover, div.stDownloadButton > button:hover { background-co
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CORE COMPLIANCE ENGINE ---
+# --- 2. CORE COMPLIANCE ENGINE (NEW INDUSTRY STANDARD LOGIC) ---
 class ComplianceEngine:
     def __init__(self, umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate):
         self.umk = umk
@@ -90,18 +89,31 @@ class ComplianceEngine:
         return base_cost_per_head * count
 
     def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev, mgt_fee_rate=0.0):
+        # STANDAR KERJA (Fatigue Factor)
         ff = (hours * 7) / 40 
         
-        cashier = math.floor((g_in + g_out) * ff) if sys == 'Manual' else 0
+        # --- 1. LOGIKA KAPASITAS PARKIR UNTUK ATTENDANT (INDUSTRY STANDARD) ---
         if sys == 'Manual':
-            att = math.floor((math.ceil((c_mob + c_mot) / 500)) * ff)
+            att_base = (c_mob / 250) + (c_mot / 500)
         elif sys == 'Semi-Auto':
-            att = math.floor((g_out + math.ceil((c_mob + c_mot) / 500)) * ff)
-        else: 
-            att = math.floor((math.ceil((c_mob + c_mot) / 1000)) * ff)
+            att_base = (c_mob / 400) + (c_mot / 800)
+        else: # Full Manless
+            att_base = (c_mob / 600) + (c_mot / 1200)
             
+        att = math.floor(math.ceil(att_base) * ff) if att_base > 0 else 0
+        
+        # --- 2. LOGIKA CASHIER BERDASARKAN GATE ---
+        if sys == 'Manual':
+            cashier = math.floor((g_in + g_out) * ff)
+        elif sys == 'Semi-Auto':
+            cashier = math.floor(g_out * ff) # Hanya bayar di Gate OUT
+        else:
+            cashier = 0 # Manless = Cashless
+            
+        # --- 3. LOGIKA CONTROL ROOM ---
         ctrl = math.floor(1 * ff) if sys != 'Manual' else 0
 
+        # --- 4. LOGIKA STAFF BERDASARKAN REVENUE ---
         spv, adm, cpm = (3, 1, 1) if rev >= 500000000 else (1, 0, 0) if rev >= 150000000 else (0, 0, 0)
         
         adm_allowance = 0.10
@@ -129,7 +141,6 @@ class ComplianceEngine:
         total_mpp = shift_mpp + office_mpp
         ratio = (final_cost / rev) * 100 if rev > 0 else 0
         
-        # MENGEMBALIKAN RINCIAN KOMPOSISI
         return {
             "mpp": total_mpp, 
             "shift_mpp": shift_mpp, 
@@ -197,10 +208,10 @@ with st.sidebar:
     c_g1, c_g2 = st.columns(2)
     with c_g1:
         g_in = st.number_input("Gate IN", value=3)
-        c_mob = st.number_input("Car Capacity", value=300)
+        c_mob = st.number_input("Car Capacity (Bays)", value=300, step=50)
     with c_g2:
         g_out = st.number_input("Gate OUT", value=3)
-        c_mot = st.number_input("Motor Capacity", value=200)
+        c_mot = st.number_input("Motor Capacity (Bays)", value=200, step=50)
 
     st.divider()
     
@@ -236,7 +247,6 @@ with col_a:
     st.markdown(f"<div class='money-helper helper-a'>🎯 {format_idr(rev_a)}</div>", unsafe_allow_html=True)
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
-    # HTML SATU BARIS ANTI BOCOR (DENGAN TAMBAHAN KOMPOSISI KARYAWAN)
     html_a = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-a'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div><div class='metric-card metric-card-a'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_a['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_a['office_mpp']} Pax</span></div></div><div style='display:flex; gap:10px; margin-bottom:15px;'><div class='comp-box' style='flex:1;'><div class='comp-title'>Non-Staff (Shift)</div><div class='comp-row'><span>Attendant</span><span class='comp-val'>{res_a['att']} Pax</span></div><div class='comp-row'><span>Gate/Cashier</span><span class='comp-val'>{res_a['cashier']} Pax</span></div><div class='comp-row'><span>Control Room</span><span class='comp-val'>{res_a['ctrl']} Pax</span></div></div><div class='comp-box' style='flex:1;'><div class='comp-title'>Staff (Office)</div><div class='comp-row'><span>Admin</span><span class='comp-val'>{res_a['adm']} Pax</span></div><div class='comp-row'><span>Supervisor</span><span class='comp-val'>{res_a['spv']} Pax</span></div><div class='comp-row'><span>Manager (CPM)</span><span class='comp-val'>{res_a['cpm']} Pax</span></div></div></div><div class='total-cost-box total-cost-a'><div class='total-label'>{cost_label}</div><p class='total-value-a'>{format_idr(res_a['cost'])}</p></div></div>"
     st.markdown(html_a, unsafe_allow_html=True)
 
@@ -247,7 +257,6 @@ with col_b:
     st.markdown(f"<div class='money-helper helper-b'>🎯 {format_idr(rev_b)}</div>", unsafe_allow_html=True)
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
-    # HTML SATU BARIS ANTI BOCOR (DENGAN TAMBAHAN KOMPOSISI KARYAWAN)
     html_b = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-b'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div><div class='metric-card metric-card-b'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_b['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_b['office_mpp']} Pax</span></div></div><div style='display:flex; gap:10px; margin-bottom:15px;'><div class='comp-box' style='flex:1;'><div class='comp-title'>Non-Staff (Shift)</div><div class='comp-row'><span>Attendant</span><span class='comp-val'>{res_b['att']} Pax</span></div><div class='comp-row'><span>Gate/Cashier</span><span class='comp-val'>{res_b['cashier']} Pax</span></div><div class='comp-row'><span>Control Room</span><span class='comp-val'>{res_b['ctrl']} Pax</span></div></div><div class='comp-box' style='flex:1;'><div class='comp-title'>Staff (Office)</div><div class='comp-row'><span>Admin</span><span class='comp-val'>{res_b['adm']} Pax</span></div><div class='comp-row'><span>Supervisor</span><span class='comp-val'>{res_b['spv']} Pax</span></div><div class='comp-row'><span>Manager (CPM)</span><span class='comp-val'>{res_b['cpm']} Pax</span></div></div></div><div class='total-cost-box total-cost-b'><div class='total-label'>{cost_label}</div><p class='total-value-b'>{format_idr(res_b['cost'])}</p></div></div>"
     st.markdown(html_b, unsafe_allow_html=True)
 
