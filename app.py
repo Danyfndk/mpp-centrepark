@@ -33,63 +33,71 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CORE COMPLIANCE ENGINE ---
+# --- 2. CORE COMPLIANCE ENGINE (FLEXIBLE COST LOGIC) ---
 class ComplianceEngine:
-    def __init__(self, umk):
+    def __init__(self, umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate):
         self.umk = umk
-        self.fixed_overhead = 500000 
-        self.bpjs_thr_uuck = 0.0624 + 0.0833 + 0.0833
+        self.fixed_overhead = fixed_overhead 
+        self.bpjs_thr_uuck = bpjs_rate + thr_rate + uuck_rate
 
     def get_cost(self, count, allowance=0):
         if count <= 0: return 0
         gp_plus_tunj = self.umk * (1 + allowance)
-        return (gp_plus_tunj * (1 + self.bpjs_thr_uuck) + self.fixed_overhead) * count
+        base_cost_per_head = (gp_plus_tunj * (1 + self.bpjs_thr_uuck)) + self.fixed_overhead
+        return base_cost_per_head * count
 
-    def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev):
+    def calculate(self, sys, g_in, g_out, c_mob, c_mot, hours, rev, mgt_fee_rate=0.0):
+        # STANDAR KERJA 40 JAM/MINGGU
         ff = (hours * 7) / 40 
         
+        # MPP Allocation
         cashier = math.floor((g_in + g_out) * ff) if sys == 'Manual' else 0
+        
         if sys == 'Manual':
             att = math.floor((math.ceil((c_mob + c_mot) / 500)) * ff)
         elif sys == 'Semi-Auto':
             att = math.floor((g_out + math.ceil((c_mob + c_mot) / 500)) * ff)
-        else: 
+        else: # Full Manless
             att = math.floor((math.ceil((c_mob + c_mot) / 1000)) * ff)
+            
         ctrl = math.floor(1 * ff) if sys != 'Manual' else 0
 
+        # Staffing Logic based on Revenue
         spv, adm, cpm = (3, 1, 1) if rev >= 500000000 else (1, 0, 0) if rev >= 150000000 else (0, 0, 0)
         
-        cost_total = self.get_cost(cashier + ctrl + att, 0) + \
-                     self.get_cost(adm, 0.15) + self.get_cost(spv, 0.20) + \
-                     self.get_cost(cpm, 0.25)
+        # Kalkulasi Actual Manpower Cost (Dasar)
+        actual_manpower_cost = self.get_cost(cashier + ctrl + att, 0) + \
+                               self.get_cost(adm, 0.15) + self.get_cost(spv, 0.20) + \
+                               self.get_cost(cpm, 0.25)
         
-        return {"mpp": cashier+ctrl+att+spv+adm+cpm, "ratio": (cost_total/rev)*100 if rev > 0 else 0, "cost": cost_total}
+        # Menambahkan Management Fee jika ada
+        final_cost = actual_manpower_cost * (1 + mgt_fee_rate)
+        
+        total_mpp = cashier + ctrl + att + spv + adm + cpm
+        ratio = (final_cost / rev) * 100 if rev > 0 else 0
+        
+        return {"mpp": total_mpp, "ratio": ratio, "cost": final_cost}
 
-# --- FUNGSI DOWNLOAD EXCEL ---
+# --- EXCEL DOWNLOAD FUNCTION ---
 def generate_excel(df_comparison, df_shift):
     output = BytesIO()
-    # Menggunakan xlsxwriter untuk bisa memanipulasi lebar kolom
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_comparison.to_excel(writer, sheet_name='Perbandingan Skenario', index=False)
-        df_shift.to_excel(writer, sheet_name='Jadwal Shift', index=False)
+        df_comparison.to_excel(writer, sheet_name='Scenario Comparison', index=False)
+        df_shift.to_excel(writer, sheet_name='Shift Schedule', index=False)
         
         workbook = writer.book
-        worksheet1 = writer.sheets['Perbandingan Skenario']
-        worksheet2 = writer.sheets['Jadwal Shift']
+        worksheet1 = writer.sheets['Scenario Comparison']
+        worksheet2 = writer.sheets['Shift Schedule']
         
-        # Format angka (Accounting/Rupiah)
         money_format = workbook.add_format({'num_format': '#,##0'})
         
-        # Autofit Kolom Sheet 1
         for i, col in enumerate(df_comparison.columns):
             column_len = max(df_comparison[col].astype(str).map(len).max(), len(col)) + 2
-            # Terapkan format angka jika nama kolom mengandung "Cost" atau "Revenue"
             if "Cost" in col or "Revenue" in col:
                 worksheet1.set_column(i, i, column_len, money_format)
             else:
                 worksheet1.set_column(i, i, column_len)
                 
-        # Autofit Kolom Sheet 2
         for i, col in enumerate(df_shift.columns):
             column_len = max(df_shift[col].astype(str).map(len).max(), len(col)) + 2
             worksheet2.set_column(i, i, column_len)
@@ -98,92 +106,132 @@ def generate_excel(df_comparison, df_shift):
 
 # --- 3. UI DASHBOARD ---
 st.title("🛡️ CP CorePlanner v2.5")
-st.markdown("Automated Shift Compliance & Rest-Day Logic")
+st.markdown("Automated Shift Compliance, Actual Overhead & Rest-Day Logic")
 
 with st.sidebar:
-    st.header("📍 Base Configuration")
-    umk = st.number_input("Regional UMK (Rp)", value=5729876)
-    hours = st.slider("Operating Hours", 16, 24, 24)
+    st.header("🏢 Project Identity") 
+    raw_project_name = st.text_input("Project Name", value="EXAMPLE PROJECT")
+    project_name = raw_project_name.strip().upper() 
+    property_type = st.selectbox(
+        "Property Type", 
+        ["MALL", "HOSPITAL", "OFFICE BUILDING", "HOTEL", "TRANSIT HUB", "SHOPHOUSE", "TRADITIONAL MARKET", "MODERN MARKET", "OTHER"]
+    )
+    standard_project_id = f"[{property_type}] - {project_name}"
+    
     st.divider()
+    
+    st.header("📍 Base Configuration")
+    umk = st.number_input("Regional Minimum Wage (UMK)", value=5729876)
+    hours = st.slider("Operating Hours / Day", 16, 24, 24)
+    
     c_g1, c_g2 = st.columns(2)
     with c_g1:
         g_in = st.number_input("Gate IN", value=3)
-        c_mob = st.number_input("Cap Mobil", value=300)
+        c_mob = st.number_input("Car Capacity", value=300)
     with c_g2:
         g_out = st.number_input("Gate OUT", value=3)
-        c_mot = st.number_input("Cap Motor", value=200)
+        c_mot = st.number_input("Motor Capacity", value=200)
 
-eng = ComplianceEngine(umk)
+    st.divider()
+    
+    st.header("💰 Actual Cost Variables")
+    with st.expander("Adjust Variables", expanded=False):
+        fixed_overhead = st.number_input("Fixed Overhead / Pax (Uniform, HRIS, etc)", value=500000, step=50000)
+        st.caption("BPJS, THR & UUCK (% from base salary):")
+        bpjs_rate = st.number_input("BPJS Company Portion (%)", value=10.24, step=0.1) / 100
+        thr_rate = st.number_input("THR Provision (%)", value=8.33, step=0.1) / 100
+        uuck_rate = st.number_input("UUCK/Severance Provision (%)", value=8.33, step=0.1) / 100
 
-# WHAT-IF COMPARISON (Sekarang Reaktif & Langsung Tampil)
-st.subheader("💡 What-If Scenario Comparison")
+    st.divider()
+    
+    # --- FITUR BARU: COMMERCIAL / MGT FEE ---
+    st.header("📈 Commercial Settings")
+    include_mgt_fee = st.checkbox("Include Management Fee")
+    mgt_fee_rate = 0.0 # Default 0
+    if include_mgt_fee:
+        mgt_fee_rate = st.number_input("Management Fee (%)", value=10.0, step=1.0) / 100
+
+eng = ComplianceEngine(umk, fixed_overhead, bpjs_rate, thr_rate, uuck_rate)
+
+# Menentukan label tampilan cost
+cost_label = "Total Cost (incl. Mgt Fee)" if include_mgt_fee else "Actual Manpower Cost"
+
+# WHAT-IF COMPARISON
+st.subheader(f"💡 What-If Scenario: {standard_project_id}")
 col_a, col_b = st.columns(2)
 
 with col_a:
     st.markdown("<div class='scenario-box'>", unsafe_allow_html=True)
-    st.subheader("🅰️ Skenario A")
-    sys_a = st.selectbox("Sistem A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
-    rev_a = st.number_input("Revenue A (Rp)", value=150000000, key="rev_a")
-    res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a)
+    st.subheader("🅰️ Scenario A")
+    sys_a = st.selectbox("System A", ['Manual', 'Semi-Auto', 'Full Manless'], key="sys_a")
+    rev_a = st.number_input("Est. Revenue A (Rp)", value=150000000, key="rev_a")
+    
+    # Mengirimkan mgt_fee_rate ke engine
+    res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
     st.markdown(f"""
         <div style='display:flex; gap:10px; margin-bottom:15px;'>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div>
         </div>
     """, unsafe_allow_html=True)
-    st.write(f"**Total Cost: Rp {res_a['cost']:,.0f}**".replace(",","."))
+    st.write(f"**{cost_label}: Rp {res_a['cost']:,.0f}**".replace(",","."))
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_b:
     st.markdown("<div class='scenario-box'>", unsafe_allow_html=True)
-    st.subheader("🅱️ Skenario B")
-    sys_b = st.selectbox("Sistem B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
-    rev_b = st.number_input("Revenue B (Rp)", value=250000000, key="rev_b")
-    res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b)
+    st.subheader("🅱️ Scenario B")
+    sys_b = st.selectbox("System B", ['Manual', 'Semi-Auto', 'Full Manless'], index=2, key="sys_b")
+    rev_b = st.number_input("Est. Revenue B (Rp)", value=250000000, key="rev_b")
+    
+    # Mengirimkan mgt_fee_rate ke engine
+    res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
     st.markdown(f"""
         <div style='display:flex; gap:10px; margin-bottom:15px;'>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div>
-            <div class='metric-card' style='flex:1'><div class='metric-label'>Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div>
+            <div class='metric-card' style='flex:1'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div>
         </div>
     """, unsafe_allow_html=True)
-    st.write(f"**Total Cost: Rp {res_b['cost']:,.0f}**".replace(",","."))
+    st.write(f"**{cost_label}: Rp {res_b['cost']:,.0f}**".replace(",","."))
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- SIAPKAN DATA UNTUK EXCEL ---
+# --- DATA EXCEL ---
 df_comparison = pd.DataFrame({
-    "Metrik": ["Sistem", "Revenue", "MPP (Pax)", "Ratio Cost/Rev (%)", "Total Cost (Rp)"],
-    "Skenario A": [sys_a, rev_a, res_a['mpp'], round(res_a['ratio'], 2), res_a['cost']],
-    "Skenario B": [sys_b, rev_b, res_b['mpp'], round(res_b['ratio'], 2), res_b['cost']]
+    "Metric": ["Project ID", "Parking System", "Est. Revenue", "Total MPP (Pax)", "Cost/Rev Ratio (%)", f"{cost_label} (Rp)"],
+    "Scenario A": [standard_project_id, sys_a, rev_a, res_a['mpp'], round(res_a['ratio'], 2), res_a['cost']],
+    "Scenario B": [standard_project_id, sys_b, rev_b, res_b['mpp'], round(res_b['ratio'], 2), res_b['cost']]
 })
 
 shift_logic = pd.DataFrame({
-    "Hari": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"],
-    "Shift 1 (Pagi)": ["Grup A", "Grup A", "Grup B", "Grup B", "Grup C", "Grup C", "Grup D"],
-    "Shift 2 (Siang)": ["Grup B", "Grup B", "Grup C", "Grup C", "Grup D", "Grup D", "Grup A"],
-    "Shift 3 (Malam)": ["Grup C", "Grup C", "Grup D", "Grup D", "Grup A", "Grup A", "Grup B"],
-    "OFF (LIBUR)": ["Grup D", "Grup D", "Grup A", "Grup A", "Grup B", "Grup B", "Grup C"]
+    "Day": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "Shift 1 (Morning)": ["Group A", "Group A", "Group B", "Group B", "Group C", "Group C", "Group D"],
+    "Shift 2 (Afternoon)": ["Group B", "Group B", "Group C", "Group C", "Group D", "Group D", "Group A"],
+    "Shift 3 (Night)": ["Group C", "Group C", "Group D", "Group D", "Group A", "Group A", "Group B"],
+    "OFF (Rest Day)": ["Group D", "Group D", "Group A", "Group A", "Group B", "Group B", "Group C"]
 })
 
 # TOMBOL DOWNLOAD EXCEL
 st.divider()
 excel_data = generate_excel(df_comparison, shift_logic)
+
+safe_filename = project_name.replace(" ", "_")
+safe_property = property_type.replace(" ", "_").replace("/", "_")
 st.download_button(
-    label="📥 Download Hasil Analisis (Excel)",
+    label="📥 Download Analysis Report (Excel)",
     data=excel_data,
-    file_name="Manpower_Planning_Report.xlsx",
+    file_name=f"MPP_{safe_property}_{safe_filename}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# SHIFT SCHEDULING WITH AUTOMATIC OFF DAYS
-st.subheader(f"🗓️ Penjadwalan Kerja Mingguan (Rest Day Automator)")
-st.info("Pola rotasi ini memastikan setiap karyawan memiliki minimal 1 hari LIBUR (OFF) dalam seminggu sesuai UU Ketenagakerjaan.")
+# SHIFT SCHEDULING
+st.subheader(f"🗓️ Weekly Work Scheduling (Rest Day Automator)")
+st.info("This rotation pattern ensures every employee has at least 1 REST DAY per week in compliance with labor regulations.")
 st.dataframe(shift_logic, use_container_width=True, hide_index=True)
 
 # VALIDASI P&L GUARDRAIL
 st.divider()
 if res_a['ratio'] > 30 or res_b['ratio'] > 30:
-    st.warning("⚠️ **Profitability Alert**: Salah satu skenario melebihi ambang batas biaya SDM 30%.")
+    st.warning("⚠️ **Profitability Alert**: One of the scenarios exceeds the 30% Manpower Cost threshold.")
 else:
-    st.success("✅ **P&L Secure**: Kedua skenario berada dalam batas biaya SDM yang sehat.")
+    st.success("✅ **P&L Secure**: Both scenarios are within healthy Manpower Cost limits.")
