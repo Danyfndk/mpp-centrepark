@@ -60,6 +60,10 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1e293b !
 .helper-b { color: #d97706; }
 .money-helper-sidebar { font-size: 0.85rem; font-weight: 700; color: #fbbf24; margin-top: -10px; margin-bottom: 15px; }
 
+/* Info Box untuk alokasi shift */
+.info-box-a { background-color: #e0f2fe; padding: 15px; border-radius: 8px; border-left: 5px solid #004a99; margin-bottom: 10px; color: #0f172a;}
+.info-box-b { background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 5px solid #d97706; margin-bottom: 20px; color: #0f172a;}
+
 div.stButton > button, div.stDownloadButton > button { background-color: #004a99 !important; color: white !important; border-radius: 8px !important; font-weight: 700 !important; width: 100%; padding: 12px 0 !important; border: none !important; text-transform: uppercase; letter-spacing: 1px;}
 div.stButton > button:hover, div.stDownloadButton > button:hover { background-color: #003366 !important; box-shadow: 0 4px 15px rgba(0,74,153,0.3) !important; }
 </style>
@@ -220,40 +224,9 @@ with col_a:
     
     res_a = eng.calculate(sys_a, g_in, g_out, c_mob, c_mot, hours, rev_a, mgt_fee_rate)
     
-    # PERHATIKAN: TIDAK ADA SPASI / INDENTASI DI SINI AGAR TIDAK JADI CODE BLOCK
-    st.markdown(f"""
-<div class='result-card'>
-<div class='metric-row'>
-<div class='metric-card metric-card-a'>
-<div class='metric-label'>Total MPP</div>
-<div class='metric-value'>{res_a['mpp']} Pax</div>
-</div>
-<div class='metric-card metric-card-a'>
-<div class='metric-label'>Cost Ratio</div>
-<div class='metric-value'>{res_a['ratio']:.2f}%</div>
-</div>
-</div>
-<div class='breakdown-bar'>
-<div class='bd-item'>
-<span class='bd-label'>Ops Shift</span>
-<span class='bd-val'>{res_a['shift_mpp']} Pax</span>
-</div>
-<div class='bd-item bd-border'>
-<span class='bd-label'>Per Regu (Group)</span>
-<span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span>
-</div>
-<div class='bd-item'>
-<span class='bd-label'>Back Office</span>
-<span class='bd-val'>{res_a['office_mpp']} Pax</span>
-</div>
-</div>
-<div class='total-cost-box total-cost-a'>
-<div class='total-label'>{cost_label}</div>
-<p class='total-value-a'>{format_rp(res_a['cost'])}</p>
-</div>
-</div>
-""", unsafe_allow_html=True)
-
+    # KODE HTML SATU BARIS ANTI-BOCOR
+    html_a = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-a'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_a['mpp']} Pax</div></div><div class='metric-card metric-card-a'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_a['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_a['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_a['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_a['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-a'><div class='total-label'>{cost_label}</div><p class='total-value-a'>{format_rp(res_a['cost'])}</p></div></div>"
+    st.markdown(html_a, unsafe_allow_html=True)
 
 with col_b:
     st.markdown("<div class='header-card-b'><h3 class='header-title'>🅱️ Scenario B</h3></div>", unsafe_allow_html=True)
@@ -264,39 +237,9 @@ with col_b:
     
     res_b = eng.calculate(sys_b, g_in, g_out, c_mob, c_mot, hours, rev_b, mgt_fee_rate)
     
-    # PERHATIKAN: TIDAK ADA SPASI / INDENTASI DI SINI AGAR TIDAK JADI CODE BLOCK
-    st.markdown(f"""
-<div class='result-card'>
-<div class='metric-row'>
-<div class='metric-card metric-card-b'>
-<div class='metric-label'>Total MPP</div>
-<div class='metric-value'>{res_b['mpp']} Pax</div>
-</div>
-<div class='metric-card metric-card-b'>
-<div class='metric-label'>Cost Ratio</div>
-<div class='metric-value'>{res_b['ratio']:.2f}%</div>
-</div>
-</div>
-<div class='breakdown-bar'>
-<div class='bd-item'>
-<span class='bd-label'>Ops Shift</span>
-<span class='bd-val'>{res_b['shift_mpp']} Pax</span>
-</div>
-<div class='bd-item bd-border'>
-<span class='bd-label'>Per Regu (Group)</span>
-<span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span>
-</div>
-<div class='bd-item'>
-<span class='bd-label'>Back Office</span>
-<span class='bd-val'>{res_b['office_mpp']} Pax</span>
-</div>
-</div>
-<div class='total-cost-box total-cost-b'>
-<div class='total-label'>{cost_label}</div>
-<p class='total-value-b'>{format_rp(res_b['cost'])}</p>
-</div>
-</div>
-""", unsafe_allow_html=True)
+    # KODE HTML SATU BARIS ANTI-BOCOR
+    html_b = f"<div class='result-card'><div class='metric-row'><div class='metric-card metric-card-b'><div class='metric-label'>Total MPP</div><div class='metric-value'>{res_b['mpp']} Pax</div></div><div class='metric-card metric-card-b'><div class='metric-label'>Cost Ratio</div><div class='metric-value'>{res_b['ratio']:.2f}%</div></div></div><div class='breakdown-bar'><div class='bd-item'><span class='bd-label'>Ops Shift</span><span class='bd-val'>{res_b['shift_mpp']} Pax</span></div><div class='bd-item bd-border'><span class='bd-label'>Per Regu (Group)</span><span class='bd-val'>{get_shift_distribution(res_b['shift_mpp'])}</span></div><div class='bd-item'><span class='bd-label'>Back Office</span><span class='bd-val'>{res_b['office_mpp']} Pax</span></div></div><div class='total-cost-box total-cost-b'><div class='total-label'>{cost_label}</div><p class='total-value-b'>{format_rp(res_b['cost'])}</p></div></div>"
+    st.markdown(html_b, unsafe_allow_html=True)
 
 # --- DATA EXCEL ---
 df_comparison = pd.DataFrame({
@@ -338,9 +281,22 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# SHIFT SCHEDULING
+# --- SHIFT SCHEDULING (DENGAN DETAIL MANPOWER BARU) ---
 st.subheader(f"🗓️ Shift Rotation (UU No.6/2023 Compliant)")
-st.info("Ensures max 40 work hours/week with 4-Group Rotation. Guarantees minimum 1 Rest Day/week per employee in accordance with Indonesian Labor Law.")
+st.info("Ensures max 40 work hours/week with 4-Group Rotation. Guarantees minimum 1 Rest Day/week per employee.")
+
+# PANEL INFORMASI JUMLAH PAX PER SHIFT
+st.markdown(f"""
+    <div class='info-box-a'>
+        <strong>🅰️ Scenario A Allocation:</strong><br>
+        Setiap shift (Pagi/Siang/Malam) akan dijaga oleh <b>{get_shift_distribution(res_a['shift_mpp'])}</b> di lapangan.
+    </div>
+    <div class='info-box-b'>
+        <strong>🅱️ Scenario B Allocation:</strong><br>
+        Setiap shift (Pagi/Siang/Malam) akan dijaga oleh <b>{get_shift_distribution(res_b['shift_mpp'])}</b> di lapangan.
+    </div>
+""", unsafe_allow_html=True)
+
 st.dataframe(shift_logic, use_container_width=True, hide_index=True)
 
 # VALIDASI P&L GUARDRAIL
